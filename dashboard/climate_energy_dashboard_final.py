@@ -1,3 +1,5 @@
+# streamlit dashboard was created with the help of chatgpt
+
 import os
 import streamlit as st
 import pandas as pd
@@ -17,35 +19,38 @@ def load_data():
 df = load_data()
 
 # --- Sidebar Filters ---
-st.sidebar.markdown("### 🔍 Filters")
+st.sidebar.header("🔍 Filters")
 
-# 1. View by (Metric)
-metric_labels = {
-    'renewables_share_pct': 'Renewables Share (%)',
-    'co2_per_capita_t': 'CO₂ per Capita (tonnes)'
-}
+# 1. Metric Selector (for Visuals 3 & 5)
+st.sidebar.markdown("#### Metric Comparision (Visuals 3 & 5)")
+
 selected_metric = st.sidebar.radio(
-    "Select Metric to Compare",
-    list(metric_labels.keys()),
-    format_func=lambda x: metric_labels[x]
+    label="Select a metric to display:",
+    options=["renewables_share_pct", "co2_per_capita_t"],
+    format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
+    key="selected_metric",
+    help="Updates the metric shown in Visuals 3 and 5."
 )
 
 st.sidebar.markdown("---")
 
-# 2. Select Year
+# 2. Select Year (for most visuals)
 selected_year = st.sidebar.slider(
-    "Select Year",
-    int(df['year'].min()),
-    int(df['year'].max()),
-    int(df['year'].max())
+    label="Select Year",
+    min_value=int(df['year'].min()),
+    max_value=int(df['year'].max()),
+    value=int(df['year'].max()),
+    key="select_year_slider"  # Unique key to prevent duplication
 )
 
-# 3. Region(s)
+# 3. Select Region(s)
 selected_regions = st.sidebar.multiselect(
-    "Select Region(s)",
-    sorted(df['region'].dropna().unique()),
-    default=sorted(df['region'].dropna().unique())
+    label="Select Region(s)",
+    options=sorted(df['region'].dropna().unique()),
+    default=sorted(df['region'].dropna().unique()),
+    key="select_regions_multiselect"  # Unique key to prevent duplication
 )
+
 
 st.sidebar.markdown("---")
 
@@ -63,20 +68,39 @@ if df_filtered.empty:
 
 # --- PAGE TITLE ---
 st.title("Climate Tipping Points: How Renewables & Efficiency Cut CO₂ for a Greener Future")
-st.markdown("""
-Explore global energy trends, CO₂ emissions, and renewable energy adoption.
-Use the filters to examine who’s leading the change and where tipping points are accelerating climate action.
-""")
 
-# --- Filter Usage Explanation ---
-with st.expander("ℹ️ How Filters Affect the Dashboard", expanded=False):
-    st.markdown("""
-    - **Year** sets the snapshot year for most visuals.
-    - **Region(s)** filters which countries/regions are shown.
-    - **Metric** changes the main indicator used in the global map and heatmap.
+# --- Enhanced Intro Text with Larger Font ---
+st.markdown(
+    """
+    <div style='font-size:17px; line-height:1.6; margin-bottom: 1rem;'>
+        Explore global energy trends, CO₂ emissions, and renewable energy adoption.  
+        Use the filters to examine who’s leading the change and where tipping points are accelerating climate action.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-    > Note: Some visuals are time-series and not affected by the year filter.
-    """)
+# --- Styled Expander Label with Tooltip and Bigger Font ---
+st.markdown(
+    """
+    <div title="See which filters affect which sections of the dashboard." 
+         style='font-size:17px; font-weight:bold; margin-bottom: -8px;'>
+        📘 How Filters Affect the Dashboard
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+with st.expander("ℹ How Filters Work"):
+    st.markdown(
+        """
+        - **Year** and **Region(s)** filters apply to Visuals **1-4, 6, and 7**
+        - **Metric Selection** updates Visuals **3 and 5**  
+        - **Section 8** always shows the most recent year (not affected by the slider) 
+        - **Section 9** provides a global overview based on all available years
+        """,
+        unsafe_allow_html=True
+    )
 
 
 
@@ -165,13 +189,21 @@ st.markdown("---")
 st.markdown("### 4. Regional Momentum in Renewables Share (5-Year Change)")
 
 momentum = df.groupby(['region', 'year'])[selected_metric].mean().reset_index()
+
 momentum_pivot = momentum.pivot(index='region', columns='year', values=selected_metric).diff(axis=1).fillna(0)
 
 fig_heat = px.imshow(
     momentum_pivot,
     text_auto=True,
     aspect='auto',
-    color_continuous_scale='Greens'
+    color_continuous_scale='Greens',
+    labels=dict(color="5-Year Δ in Metric")
+)
+
+# 🔍 Improve axis label visibility
+fig_heat.update_layout(
+    xaxis=dict(title_font=dict(size=14), tickfont=dict(size=12)),
+    yaxis=dict(title_font=dict(size=14), tickfont=dict(size=12))
 )
 
 st.plotly_chart(fig_heat, use_container_width=True)
@@ -222,94 +254,115 @@ st.plotly_chart(fig_quad, use_container_width=True)
 
 
 # 6. CO₂ Distribution Over Time
-with st.container():
-    st.markdown("### 6. CO₂ Distribution Over Time")
-    st.markdown("---")
+st.markdown("---")
+st.markdown("### 6. CO₂ Distribution Over Time")
 
-    df_box = df[df['region'].isin(selected_regions)].copy()
+df_box = df[df['region'].isin(selected_regions)].copy()
 
-    # Fix to ensure bin edges are unique
-    max_year = df['year'].max()
-    bins = [2000, 2010, 2020, max_year + 1]
-    labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
-    
-    df_box['period'] = pd.cut(df_box['year'], bins=bins, labels=labels)
-    
-    fig_box = px.box(
-        df_box,
-        x='period',
-        y='co2_per_capita_t',
-        color='region',
-        labels={
-            'co2_per_capita_t': 'CO₂ per Capita (t)',
-            'period': 'Time Period'
-        }
-    )
-    st.plotly_chart(fig_box, use_container_width=True)
+# Fix to ensure bin edges are unique
+max_year = df['year'].max()
+bins = [2000, 2010, 2020, max_year + 1]
+labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
+
+df_box['period'] = pd.cut(df_box['year'], bins=bins, labels=labels)
+
+fig_box = px.box(
+    df_box,
+    x='period',
+    y='co2_per_capita_t',
+    color='region',
+    labels={
+        'co2_per_capita_t': 'CO₂ per Capita (t)',
+        'period': 'Time Period'
+    },
+    title='CO₂ per Capita Distribution by Region Over Time'
+)
+
+st.plotly_chart(fig_box, use_container_width=True)
 
 
-# 7. Energy Mix Transition by Region (Sankey)
-with st.container():
-    st.markdown("### 7. Energy Mix Transition by Region")
-    st.markdown("---")
+# 7. Energy Mix Transition by Region
+st.markdown("---")
+st.markdown("### 7. Energy Mix Transition by Region")
 
-    mix = df_year[df_year['region'].isin(selected_regions)].groupby('region')[['fossil_elec_twh', 'renew_elec_twh']].sum().reset_index()
-    if not mix.empty:
-        labels = list(mix['region']) + ['Fossil', 'Renewables']
-        source = list(range(len(mix))) * 2
-        target = [len(mix)] * len(mix) + [len(mix)+1] * len(mix)
-        value = list(mix['fossil_elec_twh']) + list(mix['renew_elec_twh'])
-        fig_sankey = go.Figure(data=[go.Sankey(
-            arrangement="snap",
-            node=dict(pad=20, thickness=40, line=dict(color="black", width=0.8), label=labels,
-                      color=["#a1d99b"]*len(mix) + ["#e34a33", "#2b8cbe"]),
-            link=dict(source=source, target=target, value=value,
-                      color=["rgba(160,160,160,0.2)"]*len(mix) + ["rgba(34,139,34,0.3)"]*len(mix))
-        )])
-        st.plotly_chart(fig_sankey, use_container_width=True)
-    else:
-        st.warning("No data available to plot the energy mix Sankey diagram.")
+mix = df_year[df_year['region'].isin(selected_regions)] \
+    .groupby('region')[['fossil_elec_twh', 'renew_elec_twh', 'nuclear_elec_twh']].sum().reset_index()
+
+if not mix.empty:
+    labels = list(mix['region']) + ['Fossil', 'Renewables']
+    source = list(range(len(mix))) * 2
+    target = [len(mix)] * len(mix) + [len(mix)+1] * len(mix)
+    value = list(mix['fossil_elec_twh']) + list(mix['renew_elec_twh'])
+
+    fig_sankey = go.Figure(data=[go.Sankey(
+        arrangement="snap",
+        node=dict(
+            pad=20, thickness=40, line=dict(color="black", width=0.8),
+            label=labels,
+            color=["#a1d99b"]*len(mix) + ["#e34a33", "#2b8cbe"]
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=value,
+            color=["rgba(160,160,160,0.2)"]*len(mix) + ["rgba(34,139,34,0.3)"]*len(mix)
+        )
+    )])
+
+    st.plotly_chart(fig_sankey, use_container_width=True)
+else:
+    st.warning("No data available to plot the energy mix Sankey diagram.")
+
 
 # 8. Top Countries by 5-Year Gain in Renewables
-with st.container():
-    st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
-    st.markdown("---")
+st.markdown("---")
+st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
 
-    top_gainers = df[df['year'] == selected_year].sort_values(by='renewables_5yr_change', ascending=False).head(10)
-    fig_bar = px.bar(top_gainers, x='country', y='renewables_5yr_change', labels={'renewables_5yr_change': '5-Year Gain (%)'}, color='region')
-    st.plotly_chart(fig_bar, use_container_width=True)
+top_gainers = df[df['year'] == selected_year] \
+    .sort_values(by='renewables_5yr_change', ascending=False).head(10)
+
+fig_bar = px.bar(
+    top_gainers,
+    x='country',
+    y='renewables_5yr_change',
+    labels={'renewables_5yr_change': '5-Year Gain (%)'},
+    color='region',
+    title=f'Top 10 Countries by Renewable Energy Growth ({selected_year})'
+)
+
+st.plotly_chart(fig_bar, use_container_width=True)
+
 
 # 9. Global View: Energy & Emissions Landscape
-with st.container():
-    st.markdown("### 🌍 9. Global View: Energy & Emissions Landscape")
-    st.markdown("---")
+st.markdown("---")
+st.markdown("### 🌍 9. Global View: Energy & Emissions Landscape")
 
-    # Enhanced heading above dropdown
-    st.markdown("**Select a Metric from the Dropdown to Display on the Map**")
+# Enhanced heading above dropdown
+st.markdown("##### **Select a Metric from the Dropdown to Display on the Map**")
 
-    map_metric_options = {
-        "Renewables Share (%)": "renewables_share_pct",
-        "CO₂ per Capita (t)": "co2_per_capita_t",
-        "Energy Intensity (MJ/$)": "energy_intensity_mj_usd",
-        "Log GDP per Capita": "log_gdp_pc_usd",
-        "Low‑Carbon Electricity (%)": "low_carbon_elec_pct",
-        "Electricity Access (%)": "elec_access_pct",
-        "Clean Fuel Access (%)": "clean_fuels_access_pct",
-        "Renewable Capacity (kW/person)": "renew_cap_kw_pc",
-        "Climate Finance (USD)": "climate_finance_usd"
-    }
+map_metric_options = {
+    "Renewables Share (%)": "renewables_share_pct",
+    "CO₂ per Capita (t)": "co2_per_capita_t",
+    "Energy Intensity (MJ/$)": "energy_intensity_mj_usd",
+    "Log GDP per Capita": "log_gdp_pc_usd",
+    "Low‑Carbon Electricity (%)": "low_carbon_elec_pct",
+    "Electricity Access (%)": "elec_access_pct",
+    "Clean Fuel Access (%)": "clean_fuels_access_pct",
+    "Renewable Capacity (kW/person)": "renew_cap_kw_pc",
+    "Climate Finance (USD)": "climate_finance_usd"
+}
 
 selected_map_label = st.selectbox(
-    label="",  # must be string, not None
-    options=list(map_metric_options.keys())
+    label="Select a Metric",
+    options=list(map_metric_options.keys()),
+    label_visibility="collapsed"  # Hides label but avoids warning
 )
 selected_map_metric = map_metric_options[selected_map_label]
 
-# Prepare map data
+
 map_data = df[df['year'] == selected_year].copy()
 map_data = map_data[map_data[selected_map_metric].notna()]
 
-# Build the choropleth map
 fig_map = px.choropleth(
     map_data,
     locations="country",
