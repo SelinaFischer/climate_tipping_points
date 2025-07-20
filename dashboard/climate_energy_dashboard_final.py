@@ -49,7 +49,7 @@ selected_regions = st.sidebar.multiselect(
 
 st.sidebar.markdown("---")
 
-
+# --- Filtered Data ---
 df_year = df[df['year'] == selected_year]
 df_filtered = df_year[df_year['region'].isin(selected_regions)]
 
@@ -68,6 +68,7 @@ Explore global energy trends, CO₂ emissions, and renewable energy adoption.
 Use the filters to examine who’s leading the change and where tipping points are accelerating climate action.
 """)
 
+# --- Filter Usage Explanation ---
 with st.expander("ℹ️ How Filters Affect the Dashboard", expanded=False):
     st.markdown("""
     - **Year** sets the snapshot year for most visuals.
@@ -77,20 +78,21 @@ with st.expander("ℹ️ How Filters Affect the Dashboard", expanded=False):
     > Note: Some visuals are time-series and not affected by the year filter.
     """)
 
-# 1. Global Progress Over Time
-with st.container():
-    st.markdown("### 1. Global Progress Over Time (2000–2020)")
-    st.markdown("---")
 
-    yearly = df[df['region'].isin(selected_regions)].groupby('year').agg({
+
+# 1. Global Progress Over Time
+st.markdown("---")
+st.markdown("### 1. Global Progress Over Time (2000–2020)")
+
+yearly = df[df['region'].isin(selected_regions)].groupby('year').agg({
         'renewables_share_pct': 'mean',
         'co2_per_capita_t': 'mean',
         'elec_access_pct': 'mean'
     }).reset_index()
 
-    yearly_long = yearly.melt(id_vars='year', var_name='Indicator', value_name='Value')
+yearly_long = yearly.melt(id_vars='year', var_name='Indicator', value_name='Value')
 
-    fig_trend = px.line(
+fig_trend = px.line(
         yearly_long,
         x='year', y='Value',
         color='Indicator',
@@ -105,26 +107,26 @@ with st.container():
         title='Global Trends (2000–2020)'
     )
 
-    fig_trend.update_yaxes(matches=None, title_text='')  # ❌ Remove Y-axis label
-    fig_trend.for_each_annotation(lambda a: a.update(text=a.text.split('=')[1]))
-    fig_trend.update_layout(showlegend=False, title={'x': 0.5})
+fig_trend.update_yaxes(matches=None, title_text='')  # Remove Y-axis label
+fig_trend.for_each_annotation(lambda a: a.update(text=a.text.split('=')[1]))
+fig_trend.update_layout(showlegend=False, title={'x': 0.5})
 
-    st.plotly_chart(fig_trend, use_container_width=True)
+st.plotly_chart(fig_trend, use_container_width=True)
 
 
 # 2. Country Leaders in Climate Action
-with st.container():
-    st.markdown("### 2. Country Leaders in Climate Action")
-    st.markdown("---")
+st.markdown("---")
+st.markdown("### 2. Country Leaders in Climate Action")
+  
                                                                                                           
-    col1, col2 = st.columns(2)
-    with col1:
+col1, col2 = st.columns(2)
+with col1:
         top_renew = df_filtered.sort_values(by='renewables_share_pct', ascending=False).head(10)
         fig1 = px.bar(top_renew, x='renewables_share_pct', y='country', orientation='h', color='region',
                       title=f'Top 10 Countries by Renewables Share ({selected_year})')
         fig1.update_layout(yaxis=dict(autorange="reversed"))
         st.plotly_chart(fig1, use_container_width=True)
-    with col2:
+with col2:
         co2_diff = df.pivot_table(index='country', columns='year', values='co2_per_capita_t')
         co2_diff = co2_diff.dropna(subset=[min(df["year"]), max(df["year"])])
         co2_diff['change'] = co2_diff[max(df["year"])] - co2_diff[min(df["year"])]
