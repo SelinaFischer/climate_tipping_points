@@ -16,15 +16,39 @@ def load_data():
 
 df = load_data()
 
-st.sidebar.header('Filters')
-selected_year = st.sidebar.slider('Select Year', int(df['year'].min()), int(df['year'].max()), int(df['year'].max()))
-selected_regions = st.sidebar.multiselect('Region(s)', sorted(df['region'].dropna().unique()), default=sorted(df['region'].dropna().unique()))
+# --- Sidebar Filters ---
+st.sidebar.markdown("### 🔍 Filters")
 
+# 1. View by (Metric)
 metric_labels = {
     'renewables_share_pct': 'Renewables Share (%)',
     'co2_per_capita_t': 'CO₂ per Capita (tonnes)'
 }
-selected_metric = st.sidebar.radio('View by:', list(metric_labels.keys()), format_func=lambda x: metric_labels[x])
+selected_metric = st.sidebar.radio(
+    "Select Metric to Compare",
+    list(metric_labels.keys()),
+    format_func=lambda x: metric_labels[x]
+)
+
+st.sidebar.markdown("---")
+
+# 2. Select Year
+selected_year = st.sidebar.slider(
+    "Select Year",
+    int(df['year'].min()),
+    int(df['year'].max()),
+    int(df['year'].max())
+)
+
+# 3. Region(s)
+selected_regions = st.sidebar.multiselect(
+    "Select Region(s)",
+    sorted(df['region'].dropna().unique()),
+    default=sorted(df['region'].dropna().unique())
+)
+
+st.sidebar.markdown("---")
+
 
 df_year = df[df['year'] == selected_year]
 df_filtered = df_year[df_year['region'].isin(selected_regions)]
@@ -44,9 +68,19 @@ Explore global energy trends, CO₂ emissions, and renewable energy adoption.
 Use the filters to examine who’s leading the change and where tipping points are accelerating climate action.
 """)
 
+with st.expander("ℹ️ How Filters Affect the Dashboard", expanded=False):
+    st.markdown("""
+    - **Year** sets the snapshot year for most visuals.
+    - **Region(s)** filters which countries/regions are shown.
+    - **Metric** changes the main indicator used in the global map and heatmap.
+
+    > Note: Some visuals are time-series and not affected by the year filter.
+    """)
+
 # 1. Global Progress Over Time
 with st.container():
     st.markdown("### 1. Global Progress Over Time (2000–2020)")
+    st.markdown("---")
 
     yearly = df[df['region'].isin(selected_regions)].groupby('year').agg({
         'renewables_share_pct': 'mean',
@@ -81,6 +115,8 @@ with st.container():
 # 2. Country Leaders in Climate Action
 with st.container():
     st.markdown("### 2. Country Leaders in Climate Action")
+    st.markdown("---")
+                                                                                                          
     col1, col2 = st.columns(2)
     with col1:
         top_renew = df_filtered.sort_values(by='renewables_share_pct', ascending=False).head(10)
@@ -102,12 +138,23 @@ with st.container():
 # 3. Emissions vs Efficiency Explorer
 with st.container():
     st.markdown("### 3. Emissions vs Efficiency Explorer")
-    fig3 = px.scatter(df_filtered, x='energy_intensity_mj_usd', y='co2_per_capita_t',
-                      size='renewables_share_pct', color='region', hover_name='country',
-                      title='Energy Intensity vs CO₂ per Capita with Renewables Share',
-                      labels={'energy_intensity_mj_usd': 'Energy Intensity (MJ/USD)',
-                              'co2_per_capita_t': 'CO₂ per Capita (t)', 'renewables_share_pct': 'Renewables Share (%)'},
-                      size_max=60)
+    st.markdown("---")
+   
+    fig3 = px.scatter(
+    df_filtered,
+    x='energy_intensity_mj_usd',
+    y='co2_per_capita_t',
+    size='renewables_share_pct',
+    color='region',
+    hover_name='country',
+    title='Energy Intensity vs CO₂ per Capita with Renewables Share',
+    labels={
+        'energy_intensity_mj_usd': 'Energy Intensity (MJ/USD)',
+        'co2_per_capita_t': 'CO₂ per Capita (t)',
+        'renewables_share_pct': 'Renewables Share (%)'
+    },
+    size_max=60
+)
     st.plotly_chart(fig3, use_container_width=True)
 
 # 4. Regional Momentum in Renewables Share (5-Year Change)
@@ -118,26 +165,64 @@ with st.container():
     fig_heat = px.imshow(momentum_pivot, text_auto=True, aspect='auto', color_continuous_scale='Greens')
     st.plotly_chart(fig_heat, use_container_width=True)
 
-# 5. CO₂ vs Energy Intensity Quadrant
+# 5. CO₂ per Capita vs Energy Intensity Quadrant
 with st.container():
     st.markdown("### 5. CO₂ per Capita vs Energy Intensity (Quadrant)")
-    fig_quad = px.scatter(df_filtered, x='energy_intensity_mj_usd', y='co2_per_capita_t', color='region',
-                          size='log_gdp_pc_usd', size_max=60, hover_name='country',
-                          labels={'energy_intensity_mj_usd': 'Energy Intensity (MJ/$)',
-                                  'co2_per_capita_t': 'CO₂ per Capita (t)', 'log_gdp_pc_usd': 'Log GDP per Capita'})
-    fig_quad.add_shape(type='line', x0=df_filtered['energy_intensity_mj_usd'].mean(),
-                       x1=df_filtered['energy_intensity_mj_usd'].mean(),
-                       y0=df_filtered['co2_per_capita_t'].min(), y1=df_filtered['co2_per_capita_t'].max(),
-                       line=dict(dash='dash', color='gray'))
-    fig_quad.add_shape(type='line', y0=df_filtered['co2_per_capita_t'].mean(),
-                       y1=df_filtered['co2_per_capita_t'].mean(),
-                       x0=df_filtered['energy_intensity_mj_usd'].min(), x1=df_filtered['energy_intensity_mj_usd'].max(),
-                       line=dict(dash='dash', color='gray'))
+    st.markdown("---")
+
+    # Custom color map to differentiate from other charts
+    region_colors_alt = {
+        "Africa": "#636EFA",     # Blue
+        "Americas": "#EF553B",   # Red
+        "Asia": "#00CC96",       # Green
+        "Europe": "#AB63FA",     # Purple
+        "Oceania": "#FFA15A"     # Orange
+    }
+
+    fig_quad = px.scatter(
+        df_filtered,
+        x='energy_intensity_mj_usd',
+        y='co2_per_capita_t',
+        color='region',
+        color_discrete_map=region_colors_alt,
+        size='log_gdp_pc_usd',
+        size_max=60,
+        hover_name='country',
+        labels={
+            'energy_intensity_mj_usd': 'Energy Intensity (MJ/$)',
+            'co2_per_capita_t': 'CO₂ per Capita (t)',
+            'log_gdp_pc_usd': 'Log GDP per Capita'
+        },
+        title='CO₂ per Capita vs Energy Intensity by Region'
+    )
+
+    # Add quadrant lines
+    fig_quad.add_shape(
+        type='line',
+        x0=df_filtered['energy_intensity_mj_usd'].mean(),
+        x1=df_filtered['energy_intensity_mj_usd'].mean(),
+        y0=df_filtered['co2_per_capita_t'].min(),
+        y1=df_filtered['co2_per_capita_t'].max(),
+        line=dict(dash='dash', color='gray')
+    )
+
+    fig_quad.add_shape(
+        type='line',
+        y0=df_filtered['co2_per_capita_t'].mean(),
+        y1=df_filtered['co2_per_capita_t'].mean(),
+        x0=df_filtered['energy_intensity_mj_usd'].min(),
+        x1=df_filtered['energy_intensity_mj_usd'].max(),
+        line=dict(dash='dash', color='gray')
+    )
+
     st.plotly_chart(fig_quad, use_container_width=True)
+
 
 # 6. CO₂ Distribution Over Time
 with st.container():
     st.markdown("### 6. CO₂ Distribution Over Time")
+    st.markdown("---")
+
     df_box = df[df['region'].isin(selected_regions)].copy()
 
     # Fix to ensure bin edges are unique
@@ -163,6 +248,8 @@ with st.container():
 # 7. Energy Mix Transition by Region (Sankey)
 with st.container():
     st.markdown("### 7. Energy Mix Transition by Region")
+    st.markdown("---")
+
     mix = df_year[df_year['region'].isin(selected_regions)].groupby('region')[['fossil_elec_twh', 'renew_elec_twh']].sum().reset_index()
     if not mix.empty:
         labels = list(mix['region']) + ['Fossil', 'Renewables']
@@ -183,16 +270,19 @@ with st.container():
 # 8. Top Countries by 5-Year Gain in Renewables
 with st.container():
     st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
+    st.markdown("---")
+
     top_gainers = df[df['year'] == selected_year].sort_values(by='renewables_5yr_change', ascending=False).head(10)
     fig_bar = px.bar(top_gainers, x='country', y='renewables_5yr_change', labels={'renewables_5yr_change': '5-Year Gain (%)'}, color='region')
     st.plotly_chart(fig_bar, use_container_width=True)
 
 # 9. Global View: Energy & Emissions Landscape
 with st.container():
-    st.markdown("### 9. Global View: Energy & Emissions Landscape")
+    st.markdown("### 🌍 9. Global View: Energy & Emissions Landscape")
+    st.markdown("---")
 
     # Enhanced heading above dropdown
-    st.markdown("##### **Select a Metric from the Dropdown to Display on the Map**")
+    st.markdown("**Select a Metric from the Dropdown to Display on the Map**")
 
     map_metric_options = {
         "Renewables Share (%)": "renewables_share_pct",
@@ -206,38 +296,40 @@ with st.container():
         "Climate Finance (USD)": "climate_finance_usd"
     }
 
-    # Cleaned dropdown label
-    selected_map_label = st.selectbox(" ", list(map_metric_options.keys()))
-    selected_map_metric = map_metric_options[selected_map_label]
+selected_map_label = st.selectbox(
+    label="",  # must be string, not None
+    options=list(map_metric_options.keys())
+)
+selected_map_metric = map_metric_options[selected_map_label]
 
-    # Prepare map data
-    map_data = df[df['year'] == selected_year].copy()
-    map_data = map_data[map_data[selected_map_metric].notna()]
+# Prepare map data
+map_data = df[df['year'] == selected_year].copy()
+map_data = map_data[map_data[selected_map_metric].notna()]
 
-    # Build the choropleth map
-    fig_map = px.choropleth(
-        map_data,
-        locations="country",
-        locationmode="country names",
-        color=selected_map_metric,
-        hover_name="country",
-        hover_data={
-            selected_map_metric: True,
-            "region": True,
-            "renewables_share_pct": True,
-            "co2_per_capita_t": True
-        },
-        color_continuous_scale="Viridis",
-        title=f"{selected_map_label} by Country – {selected_year}"
+# Build the choropleth map
+fig_map = px.choropleth(
+    map_data,
+    locations="country",
+    locationmode="country names",
+    color=selected_map_metric,
+    hover_name="country",
+    hover_data={
+        selected_map_metric: True,
+        "region": True,
+        "renewables_share_pct": True,
+        "co2_per_capita_t": True
+    },
+    color_continuous_scale="Viridis",
+    title=f"{selected_map_label} by Country – {selected_year}"
+)
+
+fig_map.update_layout(
+    margin=dict(l=0, r=0, t=50, b=0),
+    coloraxis_colorbar=dict(
+        title=selected_map_label,
+        ticks="outside",
+        len=0.75
     )
+)
 
-    fig_map.update_layout(
-        margin=dict(l=0, r=0, t=50, b=0),
-        coloraxis_colorbar=dict(
-            title=selected_map_label,
-            ticks="outside",
-            len=0.75
-        )
-    )
-
-    st.plotly_chart(fig_map, use_container_width=True)
+st.plotly_chart(fig_map, use_container_width=True)
