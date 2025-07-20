@@ -44,7 +44,7 @@ if df_filtered.empty:
 
 # 1. Heatmap: Regional Momentum (5-year change by selected metric)
 with st.container():
-    st.markdown(f"### 1. Regional Momentum in {metric_labels[selected_metric]} (5-Year Change)")
+    st.markdown(f"### Regional Momentum in {metric_labels[selected_metric]} (5-Year Change)")
     st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
 
     momentum = df.groupby(['region', 'year'])[selected_metric].mean().reset_index()
@@ -56,7 +56,7 @@ with st.container():
 
 # 2. Quadrant Chart
 with st.container():
-    st.markdown(f"### 2. CO₂ per Capita vs Energy Intensity ({selected_year})")
+    st.markdown(f"### CO₂ per Capita vs Energy Intensity ({selected_year})")
     st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
 
     fig_quad = px.scatter(
@@ -94,7 +94,7 @@ with st.container():
 
 # 3. Boxplot
 with st.container():
-    st.markdown("### 3. CO₂ per Capita Distribution Over Time")
+    st.markdown("### CO₂ per Capita Distribution Over Time")
     st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
 
     df_box = df[df['region'].isin(selected_regions)].copy()
@@ -111,7 +111,7 @@ with st.container():
 
 # 4. Sankey Diagram
 with st.container():
-    st.markdown(f"### 4. Energy Mix Transition by Region ({selected_year})")
+    st.markdown(f"### Energy Mix Transition by Region ({selected_year})")
     st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
 
     mix = df_year[df_year['region'].isin(selected_regions)].groupby('region')[['fossil_elec_twh', 'renew_elec_twh']].sum().reset_index()
@@ -143,7 +143,7 @@ with st.container():
 
 # 5. Bar Chart: Top Gainers
 with st.container():
-    st.markdown("### 5. Top Countries by 5-Year Gain in Renewables Share")
+    st.markdown("### Top Countries by 5-Year Gain in Renewables Share")
     st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
 
     top_gainers = df[df['year'] == selected_year].sort_values(by='renewables_5yr_change', ascending=False).head(10)
@@ -155,57 +155,4 @@ with st.container():
         color='region'
     )
     st.plotly_chart(fig_bar, use_container_width=True)
-    st.markdown("<hr style='margin-top:2rem; margin-bottom:2rem; border:1px solid #eee;'>", unsafe_allow_html=True)
-
-
-# 6. World Map: Global View – Energy & Emissions Landscape
-with st.container():
-    st.markdown("### 6. Global View: Energy & Emissions Landscape")
-    st.markdown("<hr style='margin-top:0; margin-bottom:1rem; border:1px solid #ddd;'>", unsafe_allow_html=True)
-
-    # Dropdown options for map metrics
-    map_metric_options = {
-        "Renewables Share (%)": "renewables_share_pct",
-        "CO₂ per Capita (t)": "co2_per_capita_t",
-        "Energy Intensity (MJ/$)": "energy_intensity_mj_usd",
-        "Log GDP per Capita": "log_gdp_pc_usd",
-        "Low‑Carbon Electricity (%)": "low_carbon_elec_pct",
-        "Electricity Access (%)": "elec_access_pct",
-        "Clean Fuel Access (%)": "clean_fuels_access_pct",
-        "Renewable Capacity (kW/person)": "renew_cap_kw_pc",
-        "Climate Finance (USD)": "climate_finance_usd"
-    }
-
-    selected_map_label = st.selectbox("Select Metric to Display on Map", list(map_metric_options.keys()))
-    selected_map_metric = map_metric_options[selected_map_label]
-
-    map_data = df[df['year'] == selected_year].copy()
-    map_data = map_data[map_data[selected_map_metric].notna()]
-
-    fig_map = px.choropleth(
-        map_data,
-        locations="country",
-        locationmode="country names",
-        color=selected_map_metric,
-        hover_name="country",
-        hover_data={
-            selected_map_metric: True,
-            "region": True,
-            "renewables_share_pct": True,
-            "co2_per_capita_t": True
-        },
-        color_continuous_scale="Viridis",
-        title=f"{selected_map_label} by Country – {selected_year}"
-    )
-
-    fig_map.update_layout(
-        margin=dict(l=0, r=0, t=50, b=0),
-        coloraxis_colorbar=dict(
-            title=selected_map_label,
-            ticks="outside",
-            len=0.75
-        )
-    )
-
-    st.plotly_chart(fig_map, use_container_width=True)
     st.markdown("<hr style='margin-top:2rem; margin-bottom:2rem; border:1px solid #eee;'>", unsafe_allow_html=True)

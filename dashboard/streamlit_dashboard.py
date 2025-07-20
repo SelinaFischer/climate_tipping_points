@@ -117,7 +117,7 @@ st.markdown("""
 **Data Source:** Aggregated climate & energy indicators (2000–2020)  
                  World Bank Population subset (2000 - 2020)
                  UNSD Region Mapping
-**Author:** Selina Fischer 
+**Author:** Selinafish
 **Tools:** Python, Pandas, Plotly, Streamlit
 """)
 
