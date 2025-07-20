@@ -85,13 +85,14 @@ st.markdown(
     """
     <div title="See which filters affect which sections of the dashboard." 
          style='font-size:17px; font-weight:bold; margin-bottom: -8px;'>
-        📘 How Filters Affect the Dashboard
+
+        ℹ️ How Filters Work
     </div>
     """,
     unsafe_allow_html=True
 )
 
-with st.expander("ℹ How Filters Work"):
+with st.expander("ℹ Filter Guide 👈"):
     st.markdown(
         """
         - **Year** and **Region(s)** filters apply to Visuals **1-4, 6, and 7**
@@ -105,7 +106,7 @@ with st.expander("ℹ How Filters Work"):
 
 
 # 1. Global Progress Over Time
-st.markdown("---")
+
 st.markdown("### 1. Global Progress Over Time (2000–2020)")
 
 yearly = df[df['region'].isin(selected_regions)].groupby('year').agg({
