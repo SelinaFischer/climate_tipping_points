@@ -138,11 +138,10 @@ with col2:
         st.plotly_chart(fig2, use_container_width=True)
 
 # 3. Emissions vs Efficiency Explorer
-with st.container():
-    st.markdown("### 3. Emissions vs Efficiency Explorer")
-    st.markdown("---")
-   
-    fig3 = px.scatter(
+st.markdown("---")
+st.markdown("### 3. Emissions vs Efficiency Explorer")
+
+fig3 = px.scatter(
     df_filtered,
     x='energy_intensity_mj_usd',
     y='co2_per_capita_t',
@@ -157,67 +156,69 @@ with st.container():
     },
     size_max=60
 )
-    st.plotly_chart(fig3, use_container_width=True)
+
+st.plotly_chart(fig3, use_container_width=True)
+
 
 # 4. Regional Momentum in Renewables Share (5-Year Change)
-with st.container():
-    st.markdown("### 4. Regional Momentum in Renewables Share (5-Year Change)")
-    momentum = df.groupby(['region', 'year'])[selected_metric].mean().reset_index()
-    momentum_pivot = momentum.pivot(index='region', columns='year', values=selected_metric).diff(axis=1).fillna(0)
-    fig_heat = px.imshow(momentum_pivot, text_auto=True, aspect='auto', color_continuous_scale='Greens')
-    st.plotly_chart(fig_heat, use_container_width=True)
+st.markdown("---")
+st.markdown("### 4. Regional Momentum in Renewables Share (5-Year Change)")
 
-# 5. CO₂ per Capita vs Energy Intensity Quadrant
-with st.container():
-    st.markdown("### 5. CO₂ per Capita vs Energy Intensity (Quadrant)")
-    st.markdown("---")
+momentum = df.groupby(['region', 'year'])[selected_metric].mean().reset_index()
+momentum_pivot = momentum.pivot(index='region', columns='year', values=selected_metric).diff(axis=1).fillna(0)
 
-    # Custom color map to differentiate from other charts
-    region_colors_alt = {
-        "Africa": "#636EFA",     # Blue
-        "Americas": "#EF553B",   # Red
-        "Asia": "#00CC96",       # Green
-        "Europe": "#AB63FA",     # Purple
-        "Oceania": "#FFA15A"     # Orange
-    }
+fig_heat = px.imshow(
+    momentum_pivot,
+    text_auto=True,
+    aspect='auto',
+    color_continuous_scale='Greens'
+)
 
-    fig_quad = px.scatter(
-        df_filtered,
-        x='energy_intensity_mj_usd',
-        y='co2_per_capita_t',
-        color='region',
-        color_discrete_map=region_colors_alt,
-        size='log_gdp_pc_usd',
-        size_max=60,
-        hover_name='country',
-        labels={
-            'energy_intensity_mj_usd': 'Energy Intensity (MJ/$)',
-            'co2_per_capita_t': 'CO₂ per Capita (t)',
-            'log_gdp_pc_usd': 'Log GDP per Capita'
-        },
-        title='CO₂ per Capita vs Energy Intensity by Region'
-    )
+st.plotly_chart(fig_heat, use_container_width=True)
 
-    # Add quadrant lines
-    fig_quad.add_shape(
-        type='line',
-        x0=df_filtered['energy_intensity_mj_usd'].mean(),
-        x1=df_filtered['energy_intensity_mj_usd'].mean(),
-        y0=df_filtered['co2_per_capita_t'].min(),
-        y1=df_filtered['co2_per_capita_t'].max(),
-        line=dict(dash='dash', color='gray')
-    )
 
-    fig_quad.add_shape(
-        type='line',
-        y0=df_filtered['co2_per_capita_t'].mean(),
-        y1=df_filtered['co2_per_capita_t'].mean(),
-        x0=df_filtered['energy_intensity_mj_usd'].min(),
-        x1=df_filtered['energy_intensity_mj_usd'].max(),
-        line=dict(dash='dash', color='gray')
-    )
+# 5. CO₂ per Capita vs Energy Intensity (Quadrant)
+st.markdown("---")
+st.markdown("### 5. CO₂ per Capita vs Energy Intensity (Quadrant)")
 
-    st.plotly_chart(fig_quad, use_container_width=True)
+fig_quad = px.scatter(
+    df_filtered,
+    x='energy_intensity_mj_usd',
+    y='co2_per_capita_t',
+    color='region',
+    color_discrete_sequence=px.colors.qualitative.Set2,  # distinct new color theme
+    size='log_gdp_pc_usd',
+    size_max=60,
+    hover_name='country',
+    labels={
+        'energy_intensity_mj_usd': 'Energy Intensity (MJ/$)',
+        'co2_per_capita_t': 'CO₂ per Capita (t)',
+        'log_gdp_pc_usd': 'Log GDP per Capita'
+    },
+    title='CO₂ per Capita vs Energy Intensity by Region'
+)
+
+# Add quadrant lines
+fig_quad.add_shape(
+    type='line',
+    x0=df_filtered['energy_intensity_mj_usd'].mean(),
+    x1=df_filtered['energy_intensity_mj_usd'].mean(),
+    y0=df_filtered['co2_per_capita_t'].min(),
+    y1=df_filtered['co2_per_capita_t'].max(),
+    line=dict(dash='dash', color='gray')
+)
+
+fig_quad.add_shape(
+    type='line',
+    y0=df_filtered['co2_per_capita_t'].mean(),
+    y1=df_filtered['co2_per_capita_t'].mean(),
+    x0=df_filtered['energy_intensity_mj_usd'].min(),
+    x1=df_filtered['energy_intensity_mj_usd'].max(),
+    line=dict(dash='dash', color='gray')
+)
+
+st.plotly_chart(fig_quad, use_container_width=True)
+
 
 
 # 6. CO₂ Distribution Over Time
