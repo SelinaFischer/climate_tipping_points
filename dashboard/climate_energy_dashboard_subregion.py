@@ -9,7 +9,7 @@ st.set_page_config(page_title='Climate Tipping Point Dashboard', layout='wide')
 
 @st.cache_data(ttl=600)
 def load_data():
-    df = pd.read_csv('data/cleaned/enhanced_energy_features.csv')
+    df = pd.read_csv('data/cleaned/enhanced_energy_features_final.csv')
     df = df.sort_values(['country', 'year'])
     df['renewables_5yr_change'] = df.groupby('country')['renewables_share_pct'].diff(periods=5)
     df = df.dropna(subset=['subregion', 'country', 'co2_per_capita_t'])
