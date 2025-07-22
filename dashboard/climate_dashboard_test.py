@@ -10,7 +10,7 @@ st.set_page_config(page_title='Climate Tipping Point Dashboard', layout='wide')
 # Load data
 @st.cache_data
 def load_data():
-    return pd.read_csv('data/cleaned/enhanced_energy_features.csv')
+    return pd.read_csv('data/cleaned/enhanced_energy_features_final.csv')
 
 df = load_data()
 
