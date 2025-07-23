@@ -1,6 +1,6 @@
 # streamlit dashboard was created with the help of chatgpt
 
-# app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -26,17 +26,20 @@ def load_data():
     df['renewables_5yr_change'] = df.groupby('country')['renewables_share_pct'].diff(5)
     df = df.dropna(subset=['country', 'region', 'co2_per_capita_t'])
 
-    
-    # ---------- NORMALISE NAMES ----------
+    # Normalise strings & unify UK variants
     for col in ["country", "region", "subregion"]:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+            df[col] = (df[col].astype(str)
+                              .str.replace("\u00a0", " ", regex=False)
+                              .str.replace(r"\s+", " ", regex=True)
+                              .str.strip())
 
     df["country"] = df["country"].replace({
         "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
         "UK": "United Kingdom"
     })
-
+    mask_uk = df["country"].str.contains(r"united\s*kingdom", case=False, na=False)
+    df.loc[mask_uk, "country"] = "United Kingdom"
 
     return df
 
@@ -57,7 +60,7 @@ def build_tree(meta: pd.DataFrame):
             tree[region].setdefault(subreg, set()).add(country)
         else:
             tree[region].setdefault("_countries", set()).add(country)
-    # convert sets to sorted lists
+    # sets -> sorted lists
     for reg in tree:
         for sub in tree[reg]:
             tree[reg][sub] = sorted(tree[reg][sub])
@@ -80,9 +83,7 @@ def to_nodes(tree: dict):
         nodes.append({"label": reg, "value": reg, "children": kids})
     return nodes
 
-
 def safe_tree_select(nodes):
-    """Call tree_select with fallbacks for older versions."""
     try:
         sel = tree_select(nodes, check_model="leaf", only_leaf_check=True, expand_all=True)
     except TypeError:
@@ -104,32 +105,41 @@ if "country" not in geo_cols:
     st.stop()
 geo_meta = df[geo_cols].drop_duplicates()
 
-# ---- Geography (tree only) ----
+# Debug & failsafe BEFORE tree
+if st.sidebar.checkbox("🛠 Show UK debug", value=False, key="uk_debug_cb"):
+    st.write("UK in df? ->", df['country'].eq("United Kingdom").any())
+    st.write("Rows in df (UK):")
+    st.write(df[df["country"]=="United Kingdom"][["country","region","subregion"]].drop_duplicates())
+    st.write("UK in geo_meta? ->", geo_meta['country'].eq("United Kingdom").any())
+    st.write("Rows in geo_meta (UK):")
+    st.write(geo_meta[geo_meta["country"]=="United Kingdom"])
+
+# Inject UK row if somehow missing in geo_meta
+if "United Kingdom" in df["country"].values and \
+   "United Kingdom" not in geo_meta["country"].values:
+    uk_row = (df[df["country"]=="United Kingdom"][geo_cols]
+                .drop_duplicates()
+                .head(1))
+    if uk_row.empty:
+        uk_row = pd.DataFrame([{
+            "region": "Europe",
+            "subregion": "Western Europe" if "subregion" in geo_cols else None,
+            "country": "United Kingdom"
+        }])
+    geo_meta = pd.concat([geo_meta, uk_row], ignore_index=True).drop_duplicates()
+
+# ---- Geography Tree ----
 with st.sidebar.expander("🌍 Geography", expanded=True):
     if not TREE_OK:
         st.error("`streamlit-tree-select` is missing. Add it to requirements.txt.")
         st.stop()
-
-    geo_cols = [c for c in ["region", "subregion", "country"] if c in df.columns]
-    geo_meta = df[geo_cols].drop_duplicates()
-
-    # --- HARD FAILSAFE for UK ---
-    if "United Kingdom" in df["country"].values and "United Kingdom" not in geo_meta["country"].values:
-        uk_row = df[df["country"] == "United Kingdom"][geo_cols].drop_duplicates().iloc[0]
-        geo_meta = pd.concat([geo_meta, uk_row.to_frame().T], ignore_index=True)
 
     tree_data = build_tree(geo_meta)
     nodes = to_nodes(tree_data)
     picked = safe_tree_select(nodes)
     countries_selected = picked or geo_meta["country"].tolist()
 
-    # quick debug (remove later)
-    if st.checkbox("🛠 Show UK debug"):
-        st.write("UK in df:", df['country'].eq("United Kingdom").any())
-        st.write("UK in geo_meta:", geo_meta['country'].eq("United Kingdom").any())
-        st.write("UK selected:", "United Kingdom" in countries_selected)
-        st.write(df[df["country"]=="United Kingdom"][["country","region","subregion"]].drop_duplicates())
-
+    # Which level to color/legend by?
     sel_rows = geo_meta[geo_meta["country"].isin(countries_selected)]
     levels_to_use = []
     if "subregion" in geo_cols and sel_rows["subregion"].nunique() > 1:
@@ -137,6 +147,10 @@ with st.sidebar.expander("🌍 Geography", expanded=True):
     if sel_rows["region"].nunique() > 1:
         levels_to_use.append("Region")
 
+# Force include checkbox (unique key)
+force_uk = st.sidebar.checkbox("Force include United Kingdom", value=False, key="force_uk_cb")
+if force_uk and "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
+    countries_selected = list(countries_selected) + ["United Kingdom"]
 
 color_col = choose_geo_col_for_color(levels_to_use)
 
@@ -147,7 +161,7 @@ with st.sidebar.expander("📅 Year", expanded=True):
         int(df['year'].min()),
         int(df['year'].max()),
         int(df['year'].max()),
-        key="select_year_slider"
+        key="year_slider"
     )
 
 # ---- Metric ----
@@ -156,7 +170,7 @@ with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
         "Select a metric to display:",
         ["renewables_share_pct", "co2_per_capita_t"],
         format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
-        key="selected_metric"
+        key="metric_radio"
     )
 
 # ---------- APPLY FILTERS ----------
@@ -193,27 +207,24 @@ with st.expander("ℹ Filter Guide 👈"):
     lvl_txt = ", ".join(levels_to_use) if levels_to_use else "All"
     st.markdown(
         f"""
-        **Filter Logic:**
+**Geography (Region/Subregion/Country)** → Visuals **1–9**  
+*(Leave all blank = all countries)*
 
-        - **Geography (Region/Subregion/Country)** → Visuals **1–9**  
-          *(If you leave everything unchecked, all countries are included by default.)*
+**Year slider** → Visuals **2–9** and the **dots/metric in Visual 10**  
+*(Visual 1 always shows 2000–2020)*
 
-        - **Year Slider** → Visuals **2–9** and the **scatter/metric in Visual 10**  
-          *(Visual 1 always shows 2000–2020)*
+**Metric selector** → Visuals **3–5**
 
-        - **Metric Selector** → Visuals **3–5**
+**Visual 10**  
+- Heatmap surface = fixed model (not filtered)  
+- Red dots & ✖ = your Geography + Year  
+- ⭐ = your sliders inside Visual 10  
+- 30% dashed line = tipping threshold
 
-        **Visual 10 – Filter rules**  
-        - Heatmap (model surface) → **does NOT change** with sidebar filters  
-        - Red dots & ✖ comparison country → follow **Geography + Year**  
-        - ⭐ Your scenario → only the two sliders inside Visual 10  
-        - 30% dashed line = tipping point threshold  
-        - Sidebar Metric radio is **not used** here
-
-        **Current Selection:**  
-        - Countries included: **{len(countries_selected)}**  
-        - Geographic Levels chosen: **{lvl_txt}**  
-        - Selected Year: **{selected_year}**
+**Current selection**  
+- Countries: **{len(countries_selected)}**  
+- Levels: **{lvl_txt}**  
+- Year: **{selected_year}**
         """,
         unsafe_allow_html=True
     )
@@ -392,7 +403,7 @@ if not mix.empty:
         arrangement="snap",
         node=dict(pad=20, thickness=40, line=dict(color="black", width=0.8),
                   label=labels,
-                  color=["#a1d99b"] * len(mix) + ["#e34a33", "#2b8cbe"]),
+                  color=["#a1d99b"] * len(mix) + ["#e34a33", "#2b8cbe"] ),
         link=dict(source=source, target=target, value=value,
                   color=["rgba(160,160,160,0.2)"] * len(mix) + ["rgba(34,139,34,0.3)"] * len(mix))
     )])
@@ -467,7 +478,7 @@ st.plotly_chart(fig_map, use_container_width=True)
 st.markdown("---")
 st.markdown("### 10. CO₂ per Capita – Predictive What‑If Explorer")
 
-# 1) Train model (heatmap surface fixed)
+# Train model on full data (surface fixed)
 train_cols = ['renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
 df_model = df[train_cols].dropna().copy()
 df_model['tip30']    = (df_model['renewables_share_pct'] >= 30).astype(int)
@@ -478,7 +489,7 @@ y = np.log(df_model['co2_per_capita_t'])
 X = df_model[['renewables_share_pct','energy_intensity_mj_usd','tip30','re_x_ei','re_x_tip']]
 model = LinearRegression().fit(X, y)
 
-# 2) Prediction grid for heatmap
+# Heatmap grid
 r_min, r_max   = 0.0, float(df['renewables_share_pct'].max())
 ei_min, ei_max = float(df['energy_intensity_mj_usd'].min()), float(df['energy_intensity_mj_usd'].max())
 r_grid  = np.linspace(r_min, r_max, 80)
@@ -520,9 +531,8 @@ scatter_pts = go.Scatter(
 
 fig_pred = go.Figure(data=[heat, line30, scatter_pts])
 
-# 3) Controls (scenario + comparison)
+# Controls
 with st.expander("Try your own values", expanded=True):
-    # safer pool (fallback if year slice empty)
     compare_pool = df_year[df_year['country'].isin(countries_selected)]
     if compare_pool.empty:
         compare_pool = df[df['country'].isin(countries_selected)]
@@ -562,7 +572,7 @@ with st.expander("Try your own values", expanded=True):
     delta = co2_pred - base_val
     st.metric("Predicted CO₂ per Capita (t)", f"{co2_pred:,.2f}", f"Δ {delta:+.2f} t vs {country_for_diff}")
 
-# 4) Markers
+# Add scenario & comparison markers
 fig_pred.add_trace(go.Scatter(
     x=[re_user], y=[ei_user],
     mode="markers",
@@ -585,7 +595,7 @@ if not np.isnan(base_val):
         name=country_for_diff
     ))
 
-# 5) Hypotheses callouts
+# Hypotheses callouts (no white arrow for H3)
 fig_pred.add_shape(
     type="rect", x0=30, x1=r_max, y0=ei_min, y1=ei_max,
     line_width=0, fillcolor="rgba(255,255,255,0.04)", layer="below"
@@ -617,8 +627,8 @@ fig_pred.add_annotation(
     borderpad=3
 )
 
-# 6) Legend / spacing tweaks
-fig_pred.data[0].showlegend = False
+# Legend / spacing tweaks
+fig_pred.data[0].showlegend = False  # hide heatmap legend
 fig_pred.data[0].colorbar.update(x=1.14, len=0.75)
 
 fig_pred.update_layout(
