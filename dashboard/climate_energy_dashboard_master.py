@@ -1,7 +1,11 @@
 # streamlit dashboard was created with the help of chatgpt
+
 # app.py
 import streamlit as st
 import pandas as pd
+import numpy as np
+import sklearn as sk
+from sklearn.linear_model import LinearRegression
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -172,10 +176,17 @@ with st.expander("ℹ Filter Guide 👈"):
           *(If you leave everything unchecked, all countries are included by default.)*
 
         - **Year Slider**  
-          - **Applies to Visuals** **2–9**  
-          - **Does NOT change Visual 1** *(Visual 1 always shows the full 2000–2020 trend)*
+          - **Applies to Visuals** **2–9** and the **scatter/metric in Visual 10** 
+          - **Visual 1 always shows the full 2000–2020 trend**
 
         - **Metric Selector** (Sidebar radio button) → Applies to Visuals **3–5**  
+
+        **Visual 10 – Filter rules**
+        - Heatmap (model surface) → **does NOT change** with sidebar filters  
+        -  Red dots & ✖ comparison country → follow **Geography + Year**  
+        - ⭐ Your scenario → set only by the two sliders inside Visual 10  
+        -  30% dashed line =  tipping point threshold  
+        -  Sidebar Metric radio button is **not used** here
 
         **Current Selection:**  
           - Countries included: **{len(countries_selected)}**  
@@ -429,3 +440,183 @@ fig_map.update_layout(
     coloraxis_colorbar=dict(title=selected_map_label, ticks="outside", len=0.75)
 )
 st.plotly_chart(fig_map, use_container_width=True)
+
+
+# ---------- 10. CO₂ per Capita – Predictive What‑If Explorer ----------
+st.markdown("---")
+st.markdown("### 10. CO₂ per Capita – Predictive What‑If Explorer")
+
+from sklearn.linear_model import LinearRegression
+import numpy as np
+import plotly.graph_objects as go
+
+# 1) Train simple model on ALL data (use df_filtered if you want the surface to react to filters)
+train_cols = ['renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
+df_model = df[train_cols].dropna().copy()
+df_model['tip30']    = (df_model['renewables_share_pct'] >= 30).astype(int)
+df_model['re_x_ei']  = df_model['renewables_share_pct'] * df_model['energy_intensity_mj_usd']
+df_model['re_x_tip'] = df_model['renewables_share_pct'] * df_model['tip30']
+
+y = np.log(df_model['co2_per_capita_t'])
+X = df_model[['renewables_share_pct','energy_intensity_mj_usd','tip30','re_x_ei','re_x_tip']]
+model = LinearRegression().fit(X, y)
+
+# 2) Prediction grid for heatmap
+r_min, r_max   = 0.0, float(df['renewables_share_pct'].max())
+ei_min, ei_max = float(df['energy_intensity_mj_usd'].min()), float(df['energy_intensity_mj_usd'].max())
+r_grid  = np.linspace(r_min, r_max, 80)
+ei_grid = np.linspace(ei_min, ei_max, 80)
+
+R, EI = np.meshgrid(r_grid, ei_grid)
+TIP = (R >= 30).astype(int)
+
+grid_df = pd.DataFrame({
+    'renewables_share_pct': R.ravel(),
+    'energy_intensity_mj_usd': EI.ravel(),
+    'tip30': TIP.ravel()
+})
+grid_df['re_x_ei']  = grid_df['renewables_share_pct'] * grid_df['energy_intensity_mj_usd']
+grid_df['re_x_tip'] = grid_df['renewables_share_pct'] * grid_df['tip30']
+
+pred_log = model.predict(grid_df[['renewables_share_pct','energy_intensity_mj_usd','tip30','re_x_ei','re_x_tip']])
+pred     = np.exp(pred_log)
+Z        = pred.reshape(EI.shape)
+
+# 3) Base traces
+heat = go.Heatmap(
+    x=r_grid, y=ei_grid, z=Z,
+    colorscale="Viridis",
+    colorbar=dict(title="Predicted CO₂/t")
+)
+line30 = go.Scatter(
+    x=[30, 30], y=[ei_min, ei_max],
+    mode="lines",
+    line=dict(color="white", dash="dash"),
+    name="30% Tipping Point Threshold"
+)
+scatter_pts = go.Scatter(
+    x=df_filtered['renewables_share_pct'],
+    y=df_filtered['energy_intensity_mj_usd'],
+    mode="markers",
+    marker=dict(size=6, opacity=0.7, color="red"),
+    text=df_filtered['country'],
+    name="Current selected countries"
+)
+fig_pred = go.Figure(data=[heat, line30, scatter_pts])
+
+# 4) Controls (your scenario + comparison country)
+with st.expander("Try your own values", expanded=True):
+    country_for_diff = st.selectbox("Compare to country (current year)", df_filtered['country'].unique())
+
+    base_row = df_filtered[df_filtered['country'] == country_for_diff]
+    if base_row.empty:
+        re_default = float(df_filtered['renewables_share_pct'].median())
+        ei_default = float(df_filtered['energy_intensity_mj_usd'].median())
+    else:
+        re_default = float(base_row['renewables_share_pct'].iloc[0])
+        ei_default = float(base_row['energy_intensity_mj_usd'].iloc[0])
+
+    c1, c2 = st.columns(2)
+    with c1:
+        re_user = st.slider("Renewables Share (%)", float(r_min), float(r_max), re_default, step=0.5)
+    with c2:
+        ei_user = st.slider("Energy Intensity (MJ/$)", float(ei_min), float(ei_max), ei_default, step=0.1)
+
+    # Predict scenario
+    tip_user = 1 if re_user >= 30 else 0
+    X_user = pd.DataFrame({
+        'renewables_share_pct':[re_user],
+        'energy_intensity_mj_usd':[ei_user],
+        'tip30':[tip_user],
+        're_x_ei':[re_user*ei_user],
+        're_x_tip':[re_user*tip_user]
+    })
+    co2_pred = float(np.exp(model.predict(X_user))[0])
+
+    base_val  = float(base_row['co2_per_capita_t'].mean()) if not base_row.empty else np.nan
+    delta     = co2_pred - base_val if not np.isnan(base_val) else np.nan
+    delta_str = f"Δ {delta:+.2f} t vs {country_for_diff}" if not np.isnan(delta) else "N/A"
+
+    st.metric("Predicted CO₂ per Capita (t)", f"{co2_pred:,.2f}", delta_str)
+
+# 5) Scenario & comparison markers
+scenario_trace = go.Scatter(
+    x=[re_user], y=[ei_user],
+    mode="markers",
+    marker=dict(symbol="star", size=16, color="white", line=dict(color="black", width=1)),
+    name="Your scenario"
+)
+fig_pred.add_trace(scenario_trace)
+
+if not base_row.empty:
+    fig_pred.add_trace(go.Scatter(
+        x=[base_row['renewables_share_pct'].iloc[0]],
+        y=[base_row['energy_intensity_mj_usd'].iloc[0]],
+        mode="markers",
+        marker=dict(symbol="x", size=12, color="yellow", line=dict(width=1, color="black")),
+        name=country_for_diff
+    ))
+
+# 6) Hypotheses callouts
+# Light shade to visualize tipping-zone (H2)
+fig_pred.add_shape(
+    type="rect", x0=30, x1=r_max, y0=ei_min, y1=ei_max,
+    line_width=0, fillcolor="rgba(255,255,255,0.04)", layer="below"
+)
+# H2 label (no arrow)
+fig_pred.add_annotation(
+    x=30, y=ei_max,
+    text="H2: ≥30% renewables → faster CO₂ decline",
+    showarrow=False,
+    xanchor="left", yanchor="top",
+    font=dict(size=11, color="white"),
+    bgcolor="rgba(0,0,0,0.35)", borderpad=3
+)
+# H1 arrow (keep)
+fig_pred.add_annotation(
+    x=r_max*0.85, y=ei_min + (ei_max-ei_min)*0.15,
+    ax=r_max*0.55, ay=ei_min + (ei_max-ei_min)*0.15,
+    text="H1: ↑ Renewables  →  ↓ CO₂",
+    showarrow=True, arrowhead=2, arrowsize=1.2, arrowcolor="white",
+    font=dict(size=11, color="white"),
+    bgcolor="rgba(0,0,0,0.35)"
+)
+# H3 label ONLY (no arrow)
+fig_pred.add_annotation(
+    x=r_min + (r_max-r_min)*0.08,
+    y=ei_max * 0.80,
+    text="H3: ↓ Energy intensity  →  ↓ CO₂",
+    showarrow=False,
+    xanchor="left", yanchor="middle",
+    font=dict(size=11, color="white"),
+    bgcolor="rgba(0,0,0,0.35)",
+    borderpad=3
+)
+
+# 7) Legend / colorbar / spacing tweaks
+fig_pred.data[0].showlegend = False                  # hide heatmap from legend
+fig_pred.data[0].colorbar.update(x=1.14, len=0.75)   # move colorbar right
+
+fig_pred.update_layout(
+    legend=dict(
+        orientation="h",
+        x=0.5, y=-0.28,                 # push legend further down
+        xanchor="center", yanchor="top",
+        bgcolor="rgba(255,255,255,0.6)",
+        borderwidth=0,
+        font=dict(size=11)
+    ),
+    margin=dict(l=0, r=140, t=70, b=190),            # extra bottom for spacing
+    xaxis_title="Renewables Share (%)",
+    yaxis_title="Energy Intensity (MJ/$)",
+    title={"text": "Predicted CO₂ per Capita Surface (model-based)", "x": 0.02}
+)
+
+st.plotly_chart(fig_pred, use_container_width=True)
+
+# Optional extra whitespace under the chart (visual separation)
+st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
+
+
+# Optional: caption instead of legend
+# st.caption("⭐ Your scenario   ✖ Comparison country   • Red dots = actual countries")

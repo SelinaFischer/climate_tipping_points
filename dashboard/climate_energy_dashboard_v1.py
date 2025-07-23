@@ -1,5 +1,4 @@
 # streamlit dashboard was created with the help of chatgpt
-
 # app.py
 import streamlit as st
 import pandas as pd
@@ -84,87 +83,54 @@ def safe_tree_select(nodes):
         return [x.get("value", x) if isinstance(x, dict) else x for x in checked]
     return [x.get("value", x) if isinstance(x, dict) else x for x in sel]
 
-# ---------- SIDEBAR FILTERS ----------
+# ---------- SIDEBAR FILTERS (CLEANED) ----------
 st.sidebar.header("🔍 Filters")
-st.sidebar.subheader("🌍 Geography Filter")
 
 geo_cols = [c for c in ["region", "subregion", "country"] if c in df.columns]
 if "country" not in geo_cols:
     st.error("The dataset needs a 'country' column.")
     st.stop()
-
 geo_meta = df[geo_cols].drop_duplicates()
 
-use_tree = st.sidebar.checkbox(
-    "Use tree selector (Region → Subregion → Country)",
-    value=TREE_OK,
-    disabled=not TREE_OK
-)
+# ---- Geography (tree only) ----
+with st.sidebar.expander("🌍 Geography", expanded=True):
+    if not TREE_OK:
+        st.error("`streamlit-tree-select` is missing. Add it to requirements.txt.")
+        st.stop()
 
-countries_selected = None
-levels_to_use = []
-
-if use_tree and TREE_OK:
     tree_data = build_tree(geo_meta)
     nodes = to_nodes(tree_data)
-    # render in sidebar
-    with st.sidebar:
-        picked = safe_tree_select(nodes)
-    countries_selected = picked if picked else geo_meta["country"].unique()
+    picked = safe_tree_select(nodes)
+    countries_selected = picked or geo_meta["country"].tolist()
+
+    # figure out which level to color/legend by
     sel_rows = geo_meta[geo_meta["country"].isin(countries_selected)]
+    levels_to_use = []
     if "subregion" in geo_cols and sel_rows["subregion"].nunique() > 1:
         levels_to_use.append("Subregion")
     if sel_rows["region"].nunique() > 1:
         levels_to_use.append("Region")
-else:
-    levels_to_use = st.sidebar.multiselect(
-        "Filter by any combination of levels:",
-        [c.capitalize() for c in geo_cols if c != "country"],
-        default=[l.capitalize() for l in geo_cols if l in ["region", "subregion"]]
-    )
-    include_countries = st.sidebar.checkbox("Add / limit by specific countries", False)
-
-    picked_sets = []
-    if "Region" in levels_to_use:
-        regions = sorted(geo_meta["region"].dropna().unique())
-        picked_r = select_all_clear_all("Choose Region(s)", regions, "regions")
-        if picked_r:
-            picked_sets.append(set(geo_meta[geo_meta["region"].isin(picked_r)]["country"].unique()))
-    if "Subregion" in levels_to_use and "subregion" in geo_cols:
-        subs = sorted(geo_meta["subregion"].dropna().unique())
-        picked_s = select_all_clear_all("Choose Subregion(s)", subs, "subregions")
-        if picked_s:
-            picked_sets.append(set(geo_meta[geo_meta["subregion"].isin(picked_s)]["country"].unique()))
-    if include_countries:
-        all_c = sorted(geo_meta["country"].dropna().unique())
-        picked_c = select_all_clear_all("Choose Country/Countries", all_c, "countries")
-        if picked_c:
-            picked_sets.append(set(picked_c))
-
-    countries_selected = sorted(set().union(*picked_sets)) if picked_sets else geo_meta["country"].unique()
 
 color_col = choose_geo_col_for_color(levels_to_use)
 
-# Metric & Year
-st.sidebar.markdown("#### Metric Comparison (Visuals 3, 4 & 5)")
-selected_metric = st.sidebar.radio(
-    "Select a metric to display:",
-    ["renewables_share_pct", "co2_per_capita_t"],
-    format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
-    key="selected_metric"
-)
+# ---- Year ----
+with st.sidebar.expander("📅 Year", expanded=True):
+    selected_year = st.slider(
+        "Select Year",
+        int(df['year'].min()),
+        int(df['year'].max()),
+        int(df['year'].max()),
+        key="select_year_slider"
+    )
 
-st.sidebar.markdown("---")
-
-selected_year = st.sidebar.slider(
-    "Select Year",
-    int(df['year'].min()),
-    int(df['year'].max()),
-    int(df['year'].max()),
-    key="select_year_slider"
-)
-
-st.sidebar.markdown("---")
+# ---- Metric ----
+with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
+    selected_metric = st.radio(
+        "Select a metric to display:",
+        ["renewables_share_pct", "co2_per_capita_t"],
+        format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
+        key="selected_metric"
+    )
 
 # ---------- APPLY FILTERS ----------
 df_year = df[df['year'] == selected_year]
@@ -202,14 +168,14 @@ with st.expander("ℹ Filter Guide 👈"):
         f"""
         **Filter Logic:**
 
-        - **Geography (Region/Subregion/Country)**  → Applies to Visuals **1–9**  
+        - **Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
           *(If you leave everything unchecked, all countries are included by default.)*
 
-         - **Year Slider**  
-           - **Applies to Visuals** **2 - 9**  
-           - **Does NOT change Visual 1** *(Visual 1 always shows the full 2000–2020 trend)*
+        - **Year Slider**  
+          - **Applies to Visuals** **2–9**  
+          - **Does NOT change Visual 1** *(Visual 1 always shows the full 2000–2020 trend)*
 
-        - **Metric Selector** (Sidebar radio button) → Applies to Visuals **3 -5**  
+        - **Metric Selector** (Sidebar radio button) → Applies to Visuals **3–5**  
 
         **Current Selection:**  
           - Countries included: **{len(countries_selected)}**  
