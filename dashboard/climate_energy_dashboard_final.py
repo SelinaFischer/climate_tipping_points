@@ -200,12 +200,6 @@ if "United Kingdom" in df["country"].values and \
         uk_row = pd.DataFrame([{"region":"Europe","subregion":"Western Europe","country":"United Kingdom"}])
     geo_meta = pd.concat([geo_meta, uk_row], ignore_index=True).drop_duplicates()
 
-# Debug
-if st.sidebar.checkbox("🛠 Show UK debug", value=False, key="uk_debug_cb"):
-    st.write("UK in df? ->", df['country'].eq("United Kingdom").any())
-    st.write(df[df["country"]=="United Kingdom"][["country","region","subregion"]].drop_duplicates())
-    st.write("UK in geo_meta? ->", geo_meta['country'].eq("United Kingdom").any())
-    st.write(geo_meta[geo_meta["country"]=="United Kingdom"])
 
 # Geography tree
 with st.sidebar.expander("🌍 Geography", expanded=True):
@@ -225,9 +219,8 @@ with st.sidebar.expander("🌍 Geography", expanded=True):
     if sel_rows["region"].nunique() > 1:
         levels_to_use.append("Region")
 
-# Force include UK
-force_uk = st.sidebar.checkbox("Force include United Kingdom", value=False, key="force_uk_cb")
-if force_uk and "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
+# Auto-ensure UK is kept if it's in the data (no UI)
+if "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
     countries_selected.append("United Kingdom")
 
 color_col = choose_geo_col_for_color(levels_to_use)
@@ -463,15 +456,31 @@ st.plotly_chart(fig_quad, use_container_width=True)
 st.markdown("---")
 st.markdown("### 6. CO₂ Distribution Over Time")
 
-df_box = df[df['country'].isin(countries_selected)].copy()
+# how many years per bucket
+bucket = 10
+
+start_year = int(df['year'].min())
+end_year   = int(selected_year)
+
+# build bin edges every `bucket` years, ending at selected_year
+edges = list(range(start_year, end_year + 1, bucket))
+if edges[-1] != end_year:
+    edges.append(end_year)
+edges.append(end_year + 1)  # upper bound for pd.cut
+
+# labels like "2001–2010"
+labels = [f"{edges[i]}–{edges[i+1]-1}" for i in range(len(edges)-1)]
+
+df_box = df[(df['country'].isin(countries_selected)) &
+            (df['year'] >= start_year) &
+            (df['year'] <= end_year)].copy()
+
+# geo fixes
 df_box = enforce_geo_labels(df_box, geo_meta[['country', color_col]], color_col, FORCE_GEO)
 df_box = force_geo(df_box)
 df_box = drop_nan_category(df_box, color_col)
 
-max_year = df['year'].max()
-bins = [2000, 2010, 2020, max_year + 1]
-labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
-df_box['period'] = pd.cut(df_box['year'], bins=bins, labels=labels)
+df_box['period'] = pd.cut(df_box['year'], bins=edges, labels=labels, right=True, include_lowest=True)
 
 fig_box = px.box(
     df_box,
@@ -479,9 +488,10 @@ fig_box = px.box(
     y='co2_per_capita_t',
     color=color_col,
     labels={'co2_per_capita_t': 'CO₂ per Capita (t)', 'period': 'Time Period'},
-    title=f'CO₂ per Capita Distribution by {color_col.title()} Over Time'
+    title=f'CO₂ per Capita Distribution by {color_col.title()} (≤ {selected_year})'
 )
 st.plotly_chart(fig_box, use_container_width=True)
+
 
 # ---------- 7. Energy Mix Transition ----------
 st.markdown("---")

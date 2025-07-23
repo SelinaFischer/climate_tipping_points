@@ -1,12 +1,12 @@
 # streamlit dashboard was created with the help of chatgpt
 
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import plotly.express as px
 import plotly.graph_objects as go
+import itertools
 
 # ---------- OPTIONAL TREE SELECTOR IMPORT ----------
 try:
@@ -23,27 +23,53 @@ st.set_page_config(page_title='Climate Tipping Point Dashboard', layout='wide')
 def load_data():
     df = pd.read_csv('data/cleaned/enhanced_energy_features_final.csv')
     df = df.sort_values(['country', 'year'])
-    df['renewables_5yr_change'] = df.groupby('country')['renewables_share_pct'].diff(5)
-    df = df.dropna(subset=['country', 'region', 'co2_per_capita_t'])
 
-    # Normalise strings & unify UK variants
+    # Normalize strings
     for col in ["country", "region", "subregion"]:
         if col in df.columns:
             df[col] = (df[col].astype(str)
-                              .str.replace("\u00a0", " ", regex=False)
-                              .str.replace(r"\s+", " ", regex=True)
-                              .str.strip())
+                                .str.replace("\u00a0", " ", regex=False)
+                                .str.replace(r"\s+", " ", regex=True)
+                                .str.strip())
 
+    # Unify UK variants
     df["country"] = df["country"].replace({
         "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
-        "UK": "United Kingdom"
+        "UK": "United Kingdom",
+        "U.K.": "United Kingdom",
+        "Great Britain": "United Kingdom"
     })
     mask_uk = df["country"].str.contains(r"united\s*kingdom", case=False, na=False)
     df.loc[mask_uk, "country"] = "United Kingdom"
 
+    # 5‑yr change
+    if 'renewables_share_pct' in df.columns:
+        df['renewables_5yr_change'] = df.groupby('country')['renewables_share_pct'].diff(5)
+
+    # Keep only rows with country + co2
+    df = df.dropna(subset=['country', 'co2_per_capita_t'])
+
+    # Ensure UK geo fields
+    uk_mask = df['country'].eq('United Kingdom')
+    if 'region' in df.columns:
+        df.loc[uk_mask & df['region'].isna(), 'region'] = 'Europe'
+    if 'subregion' in df.columns:
+        df.loc[uk_mask & df['subregion'].isna(), 'subregion'] = 'Western Europe'
+
+    # Fill key cols for Visual 10
+    for col in ['renewables_share_pct', 'energy_intensity_mj_usd']:
+        if col in df.columns:
+            df[col] = df.groupby('country')[col].transform(lambda s: s.ffill().bfill())
+
     return df
 
 df = load_data()
+
+# ---------- CONSTANTS ----------
+FORCE_GEO = {
+    'United Kingdom': {'region': 'Europe', 'subregion': 'Western Europe'},
+    'Netherlands':    {'region': 'Europe', 'subregion': 'Western Europe'},
+}
 
 # ---------- HELPERS ----------
 def choose_geo_col_for_color(levels_to_use):
@@ -55,16 +81,21 @@ def build_tree(meta: pd.DataFrame):
         region  = r["region"] if pd.notna(r.get("region")) else "Unknown"
         subreg  = r["subregion"] if ("subregion" in meta.columns and pd.notna(r.get("subregion"))) else None
         country = r["country"]
+        if region == "Unknown":
+            continue
         tree.setdefault(region, {})
-        if subreg:
+        if subreg and not str(subreg).startswith("Unknown"):
             tree[region].setdefault(subreg, set()).add(country)
         else:
             tree[region].setdefault("_countries", set()).add(country)
-    # sets -> sorted lists
     for reg in tree:
         for sub in tree[reg]:
             tree[reg][sub] = sorted(tree[reg][sub])
     return tree
+
+_uid = itertools.count()
+def _node_val(prefix, label):
+    return f"__{prefix}__::{label}::{next(_uid)}"
 
 def to_nodes(tree: dict):
     nodes = []
@@ -77,10 +108,11 @@ def to_nodes(tree: dict):
                 kids.extend([{"label": c, "value": c} for c in countries])
             else:
                 kids.append({
-                    "label": sub, "value": sub,
+                    "label": sub,
+                    "value": _node_val("subregion", sub),
                     "children": [{"label": c, "value": c} for c in countries]
                 })
-        nodes.append({"label": reg, "value": reg, "children": kids})
+        nodes.append({"label": reg, "value": _node_val("region", reg), "children": kids})
     return nodes
 
 def safe_tree_select(nodes):
@@ -91,10 +123,45 @@ def safe_tree_select(nodes):
             sel = tree_select(nodes, check_model="leaf")
         except TypeError:
             sel = tree_select(nodes)
-    if isinstance(sel, dict):
-        checked = sel.get("checked", [])
-        return [x.get("value", x) if isinstance(x, dict) else x for x in checked]
-    return [x.get("value", x) if isinstance(x, dict) else x for x in sel]
+    checked = sel.get("checked", []) if isinstance(sel, dict) else sel
+    return [v if isinstance(v, str) else v.get("value", v)
+            for v in checked
+            if isinstance(v, str) and not v.startswith("__")]
+
+def enforce_geo_labels(df_in, geo_lookup, geo_col, keep_fixed=None):
+    """Fill NaNs in geo_col using lookup; optionally force values for given countries.
+       If df has no 'country', just return it."""
+    if 'country' not in df_in.columns:
+        return df_in
+    out = df_in.copy()
+    fill_map = geo_lookup.set_index('country')[geo_col]
+    out[geo_col] = out[geo_col].fillna(out['country'].map(fill_map))
+    if keep_fixed:
+        for c, vals in keep_fixed.items():
+            if c in out['country'].values and geo_col in vals:
+                out.loc[out['country'].eq(c), geo_col] = vals[geo_col]
+    return out
+
+def force_geo(df_in, mapping=FORCE_GEO):
+    if 'country' not in df_in.columns:
+        return df_in
+    out = df_in.copy()
+    for c, vals in mapping.items():
+        if c in out['country'].values:
+            for col, val in vals.items():
+                if col in out.columns:
+                    out.loc[out['country'].eq(c), col] = val
+    return out
+
+def drop_nan_category(df_in, cat_col, protect=list(FORCE_GEO.keys())):
+    """Drop rows where cat_col is NaN/'nan', except protected countries."""
+    if cat_col not in df_in.columns:
+        return df_in
+    out = df_in.copy()
+    mask_nan = out[cat_col].isna() | (out[cat_col].astype(str).str.lower() == 'nan')
+    if 'country' in out.columns:
+        mask_nan &= ~out['country'].isin(protect)
+    return out.loc[~mask_nan].copy()
 
 # ---------- SIDEBAR FILTERS ----------
 st.sidebar.header("🔍 Filters")
@@ -103,32 +170,38 @@ geo_cols = [c for c in ["region", "subregion", "country"] if c in df.columns]
 if "country" not in geo_cols:
     st.error("The dataset needs a 'country' column.")
     st.stop()
-geo_meta = df[geo_cols].drop_duplicates()
 
-# Debug & failsafe BEFORE tree
-if st.sidebar.checkbox("🛠 Show UK debug", value=False, key="uk_debug_cb"):
-    st.write("UK in df? ->", df['country'].eq("United Kingdom").any())
-    st.write("Rows in df (UK):")
-    st.write(df[df["country"]=="United Kingdom"][["country","region","subregion"]].drop_duplicates())
-    st.write("UK in geo_meta? ->", geo_meta['country'].eq("United Kingdom").any())
-    st.write("Rows in geo_meta (UK):")
-    st.write(geo_meta[geo_meta["country"]=="United Kingdom"])
+geo_meta = df[geo_cols].drop_duplicates().replace({'nan': np.nan})
 
-# Inject UK row if somehow missing in geo_meta
+# Hard corrections in meta
+for c, vals in FORCE_GEO.items():
+    if c in geo_meta['country'].values:
+        for col, val in vals.items():
+            if col in geo_meta.columns:
+                geo_meta.loc[geo_meta['country'] == c, col] = val
+
+def pick_best(g):
+    good = g[g['region'].notna() & (g['region']!='Unknown')]
+    if 'subregion' in g.columns:
+        good = good[good['subregion'].notna() & ~good['subregion'].str.contains('Unknown', na=True)]
+    return good.head(1) if not good.empty else g.head(1)
+
+geo_meta = (geo_meta
+            .sort_values(['country','region','subregion'])
+            .groupby('country', group_keys=False)
+            .apply(pick_best)
+            .reset_index(drop=True))
+
+# Inject UK if missing
 if "United Kingdom" in df["country"].values and \
    "United Kingdom" not in geo_meta["country"].values:
-    uk_row = (df[df["country"]=="United Kingdom"][geo_cols]
-                .drop_duplicates()
-                .head(1))
+    uk_row = df[df["country"]=="United Kingdom"][geo_cols].drop_duplicates().head(1)
     if uk_row.empty:
-        uk_row = pd.DataFrame([{
-            "region": "Europe",
-            "subregion": "Western Europe" if "subregion" in geo_cols else None,
-            "country": "United Kingdom"
-        }])
+        uk_row = pd.DataFrame([{"region":"Europe","subregion":"Western Europe","country":"United Kingdom"}])
     geo_meta = pd.concat([geo_meta, uk_row], ignore_index=True).drop_duplicates()
 
-# ---- Geography Tree ----
+
+# Geography tree
 with st.sidebar.expander("🌍 Geography", expanded=True):
     if not TREE_OK:
         st.error("`streamlit-tree-select` is missing. Add it to requirements.txt.")
@@ -139,7 +212,6 @@ with st.sidebar.expander("🌍 Geography", expanded=True):
     picked = safe_tree_select(nodes)
     countries_selected = picked or geo_meta["country"].tolist()
 
-    # Which level to color/legend by?
     sel_rows = geo_meta[geo_meta["country"].isin(countries_selected)]
     levels_to_use = []
     if "subregion" in geo_cols and sel_rows["subregion"].nunique() > 1:
@@ -147,14 +219,14 @@ with st.sidebar.expander("🌍 Geography", expanded=True):
     if sel_rows["region"].nunique() > 1:
         levels_to_use.append("Region")
 
-# Force include checkbox (unique key)
-force_uk = st.sidebar.checkbox("Force include United Kingdom", value=False, key="force_uk_cb")
-if force_uk and "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
-    countries_selected = list(countries_selected) + ["United Kingdom"]
+# Auto-ensure UK is kept if it's in the data (no UI)
+if "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
+    countries_selected.append("United Kingdom")
 
 color_col = choose_geo_col_for_color(levels_to_use)
+protect_val = FORCE_GEO['United Kingdom'][color_col] if color_col in FORCE_GEO['United Kingdom'] else None
 
-# ---- Year ----
+# Year
 with st.sidebar.expander("📅 Year", expanded=True):
     selected_year = st.slider(
         "Select Year",
@@ -164,7 +236,7 @@ with st.sidebar.expander("📅 Year", expanded=True):
         key="year_slider"
     )
 
-# ---- Metric ----
+# Metric
 with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
     selected_metric = st.radio(
         "Select a metric to display:",
@@ -175,7 +247,14 @@ with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
 
 # ---------- APPLY FILTERS ----------
 df_year = df[df['year'] == selected_year]
-df_filtered = df_year[df_year['country'].isin(countries_selected)]
+df_filtered = df_year[df_year['country'].isin(countries_selected)].copy()
+
+# Fix geo labels, lock UK/Netherlands, then drop remaining NaNs
+for _df in [df_filtered, df_year]:
+    _df[:] = enforce_geo_labels(_df, geo_meta[['country', color_col]], color_col, FORCE_GEO)
+    _df[:] = force_geo(_df)
+    _df[:] = drop_nan_category(_df, color_col)
+
 if df_filtered.empty:
     st.warning("No data for the chosen filters. Adjust your selections.")
     st.stop()
@@ -207,21 +286,21 @@ with st.expander("ℹ Filter Guide 👈"):
     lvl_txt = ", ".join(levels_to_use) if levels_to_use else "All"
     st.markdown(
         f"""
-**Geography (Region/Subregion/Country)** → Visuals **1–9**  
-*(Leave all blank = all countries)*
+**Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
+*(No selection = all countries by default)*
 
-**Year slider** → Visuals **2–9** and the **dots/metric in Visual 10**  
-*(Visual 1 always shows 2000–2020)*
+**Year slider** → Applies to Visuals **2–9** and the **dots/metric in Visual 10**  
+*(Visual 1 always shows Year=2000–2020)*
 
-**Metric selector** → Visuals **3–5**
+**Metric selector (radio button)** → Applies to Visuals **3–5**
 
 **Visual 10**  
-- Heatmap surface = fixed model (not filtered)  
-- Red dots & ✖ = your Geography + Year  
-- ⭐ = your sliders inside Visual 10  
-- 30% dashed line = tipping threshold
+- Heatmap (model surface) = fixed model (not filtered)  
+- Red dots & ✖ = selected Geography + Year  
+- ⭐ = your scenario → set by sliders inside Visual 10  
+- 30% dashed line = tipping point threshold
 
-**Current selection**  
+**Current Selection**  
 - Countries: **{len(countries_selected)}**  
 - Levels: **{lvl_txt}**  
 - Year: **{selected_year}**
@@ -230,7 +309,7 @@ with st.expander("ℹ Filter Guide 👈"):
     )
 
 # ---------- 1. Global Progress Over Time ----------
-st.markdown("### 1. Global Progress Over Time (2000–2020)")
+st.markdown("### 1. Global Averages: Renewables, CO₂ per Capita & Energy Access (2000–2020)")
 yearly = df[df['country'].isin(countries_selected)].groupby('year').agg({
     'renewables_share_pct': 'mean',
     'co2_per_capita_t': 'mean',
@@ -260,6 +339,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     top_renew = df_filtered.sort_values(by='renewables_share_pct', ascending=False).head(10)
+    top_renew = force_geo(top_renew)
+    top_renew = drop_nan_category(top_renew, color_col)
     fig1 = px.bar(
         top_renew, x='renewables_share_pct', y='country',
         orientation='h', color=color_col,
@@ -278,8 +359,12 @@ with col2:
         top_reducers = co2_diff.nsmallest(10, 'change').reset_index()
         top_reducers = top_reducers.merge(df[['country', color_col]].drop_duplicates(),
                                           on='country', how='left')
+        top_reducers = enforce_geo_labels(top_reducers, geo_meta[['country', color_col]], color_col, FORCE_GEO)
+        top_reducers = force_geo(top_reducers)
+        top_reducers = drop_nan_category(top_reducers, color_col)
+
         fig2 = px.bar(
-            top_reducers.dropna(subset=[color_col]),
+            top_reducers,
             x='change', y='country',
             orientation='h', color=color_col,
             title=f"Top 10 CO₂ Reducers ({year_cols[0]}–{year_cols[-1]})"
@@ -291,7 +376,7 @@ with col2:
 
 # ---------- 3. Emissions vs Efficiency ----------
 st.markdown("---")
-st.markdown("### 3. Emissions vs Efficiency Explorer")
+st.markdown("### 3. CO₂ Emissions vs Energy Intensity (Bubble Size: Renewables Share)")
 
 fig3 = px.scatter(
     df_filtered,
@@ -310,10 +395,11 @@ st.plotly_chart(fig3, use_container_width=True)
 
 # ---------- 4. Momentum Heatmap ----------
 st.markdown("---")
-st.markdown("### 4. Momentum in Selected Metric (5-Year Change)")
+st.markdown("### 4. Renewables Momentum Heatmap (5-Year Change)")
 
 agg_col = color_col
 momentum = df[df['country'].isin(countries_selected)].groupby([agg_col, 'year'])[selected_metric].mean().reset_index()
+momentum = drop_nan_category(momentum, agg_col)  # no country col? still ok
 momentum_pivot = momentum.pivot(index=agg_col, columns='year', values=selected_metric).diff(axis=1).fillna(0)
 
 fig_heat = px.imshow(
@@ -332,7 +418,7 @@ st.plotly_chart(fig_heat, use_container_width=True)
 
 # ---------- 5. Quadrant Chart ----------
 st.markdown("---")
-st.markdown("### 5. CO₂ per Capita vs Energy Intensity (Quadrant)")
+st.markdown("### 5. Energy Efficiency vs CO₂ Emissions: Quadrant Analysis")
 
 fig_quad = px.scatter(
     df_filtered,
@@ -371,6 +457,10 @@ st.markdown("---")
 st.markdown("### 6. CO₂ Distribution Over Time")
 
 df_box = df[df['country'].isin(countries_selected)].copy()
+df_box = enforce_geo_labels(df_box, geo_meta[['country', color_col]], color_col, FORCE_GEO)
+df_box = force_geo(df_box)
+df_box = drop_nan_category(df_box, color_col)
+
 max_year = df['year'].max()
 bins = [2000, 2010, 2020, max_year + 1]
 labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
@@ -388,10 +478,13 @@ st.plotly_chart(fig_box, use_container_width=True)
 
 # ---------- 7. Energy Mix Transition ----------
 st.markdown("---")
-st.markdown("### 7. Energy Mix Transition by Region")
+st.markdown("### 7. Energy Mix Transition by Region/Subregion")
 
 mix = df_year[df_year['country'].isin(countries_selected)] \
     .groupby('region')[['fossil_elec_twh', 'renew_elec_twh', 'nuclear_elec_twh']].sum().reset_index()
+
+mix = mix.replace({'nan': np.nan})
+mix = mix[mix['region'].notna() & (mix['region']!='Unknown')]
 
 if not mix.empty:
     labels = list(mix['region']) + ['Fossil', 'Renewables']
@@ -418,6 +511,9 @@ st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
 top_gainers = df[df['year'] == selected_year]
 top_gainers = top_gainers[top_gainers['country'].isin(countries_selected)] \
     .sort_values(by='renewables_5yr_change', ascending=False).head(10)
+top_gainers = enforce_geo_labels(top_gainers, geo_meta[['country', color_col]], color_col, FORCE_GEO)
+top_gainers = force_geo(top_gainers)
+top_gainers = drop_nan_category(top_gainers, color_col)
 
 fig_bar = px.bar(
     top_gainers,
@@ -456,6 +552,9 @@ selected_map_metric = map_metric_options[selected_map_label]
 map_data = df[df['year'] == selected_year]
 map_data = map_data[map_data['country'].isin(countries_selected)]
 map_data = map_data[map_data[selected_map_metric].notna()]
+map_data = enforce_geo_labels(map_data, geo_meta[['country', color_col]], color_col, FORCE_GEO)
+map_data = force_geo(map_data)
+map_data = drop_nan_category(map_data, color_col)
 
 fig_map = px.choropleth(
     map_data,
@@ -476,9 +575,8 @@ st.plotly_chart(fig_map, use_container_width=True)
 
 # ---------- 10. CO₂ per Capita – Predictive What‑If Explorer ----------
 st.markdown("---")
-st.markdown("### 10. CO₂ per Capita – Predictive What‑If Explorer")
+st.markdown("### 10. CO₂ per Capita – Predictive Scenario Explorer")
 
-# Train model on full data (surface fixed)
 train_cols = ['renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
 df_model = df[train_cols].dropna().copy()
 df_model['tip30']    = (df_model['renewables_share_pct'] >= 30).astype(int)
@@ -489,7 +587,6 @@ y = np.log(df_model['co2_per_capita_t'])
 X = df_model[['renewables_share_pct','energy_intensity_mj_usd','tip30','re_x_ei','re_x_tip']]
 model = LinearRegression().fit(X, y)
 
-# Heatmap grid
 r_min, r_max   = 0.0, float(df['renewables_share_pct'].max())
 ei_min, ei_max = float(df['energy_intensity_mj_usd'].min()), float(df['energy_intensity_mj_usd'].max())
 r_grid  = np.linspace(r_min, r_max, 80)
@@ -520,18 +617,35 @@ line30 = go.Scatter(
     line=dict(color="white", dash="dash"),
     name="30% tipping threshold"
 )
+
+need_cols = ['renewables_share_pct', 'energy_intensity_mj_usd']
+scatter_df = df[(df['year'] == selected_year) & (df['country'].isin(countries_selected))].copy()
+scatter_df = force_geo(scatter_df)
+scatter_df = drop_nan_category(scatter_df, color_col)  # color not used here, but safe
+
+if 'United Kingdom' in countries_selected:
+    uk_sel = scatter_df[scatter_df['country'] == 'United Kingdom']
+    if uk_sel.empty or uk_sel[need_cols].isna().any().any():
+        uk_full = df[(df['country'] == 'United Kingdom') & df[need_cols].notna().all(axis=1)]
+        if not uk_full.empty:
+            idx_near = (uk_full['year'] - selected_year).abs().idxmin()
+            uk_clone = uk_full.loc[[idx_near]].copy()
+            uk_clone['year'] = selected_year
+            scatter_df = pd.concat([scatter_df, uk_clone], ignore_index=True)
+
+scatter_df = scatter_df.dropna(subset=need_cols)
+
 scatter_pts = go.Scatter(
-    x=df_filtered['renewables_share_pct'],
-    y=df_filtered['energy_intensity_mj_usd'],
+    x=scatter_df['renewables_share_pct'],
+    y=scatter_df['energy_intensity_mj_usd'],
     mode="markers",
     marker=dict(size=6, opacity=0.7, color="red"),
-    text=df_filtered['country'],
-    name="Current countries"
+    text=scatter_df['country'],
+    name="Current Selected Countries"
 )
 
 fig_pred = go.Figure(data=[heat, line30, scatter_pts])
 
-# Controls
 with st.expander("Try your own values", expanded=True):
     compare_pool = df_year[df_year['country'].isin(countries_selected)]
     if compare_pool.empty:
@@ -572,7 +686,6 @@ with st.expander("Try your own values", expanded=True):
     delta = co2_pred - base_val
     st.metric("Predicted CO₂ per Capita (t)", f"{co2_pred:,.2f}", f"Δ {delta:+.2f} t vs {country_for_diff}")
 
-# Add scenario & comparison markers
 fig_pred.add_trace(go.Scatter(
     x=[re_user], y=[ei_user],
     mode="markers",
@@ -595,7 +708,6 @@ if not np.isnan(base_val):
         name=country_for_diff
     ))
 
-# Hypotheses callouts (no white arrow for H3)
 fig_pred.add_shape(
     type="rect", x0=30, x1=r_max, y0=ei_min, y1=ei_max,
     line_width=0, fillcolor="rgba(255,255,255,0.04)", layer="below"
@@ -627,8 +739,7 @@ fig_pred.add_annotation(
     borderpad=3
 )
 
-# Legend / spacing tweaks
-fig_pred.data[0].showlegend = False  # hide heatmap legend
+fig_pred.data[0].showlegend = False
 fig_pred.data[0].colorbar.update(x=1.14, len=0.75)
 
 fig_pred.update_layout(
