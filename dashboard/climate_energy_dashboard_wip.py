@@ -662,7 +662,7 @@ scatter_pts = go.Scatter(
 
 fig_pred = go.Figure(data=[heat, line30, scatter_pts])
 
-with st.expander("Try your own values", expanded=True):
+with st.expander("Adjust sliders to predict CO₂ emissions", expanded=True):
     compare_pool = df_year[df_year['country'].isin(countries_selected)]
     if compare_pool.empty:
         compare_pool = df[df['country'].isin(countries_selected)]
