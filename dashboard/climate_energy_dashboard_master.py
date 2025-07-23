@@ -1,6 +1,6 @@
 # streamlit dashboard was created with the help of chatgpt
 
-# app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
