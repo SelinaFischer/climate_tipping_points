@@ -1,431 +1,233 @@
 # streamlit dashboard was created with the help of chatgpt
-# app.py
+
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
+from pathlib import Path
 
-# ---------- OPTIONAL TREE SELECTOR IMPORT ----------
-try:
-    from streamlit_tree_select import tree_select
-    TREE_OK = True
-except Exception:
-    TREE_OK = False
-
-# ---------- PAGE CONFIG ----------
-st.set_page_config(page_title='Climate Tipping Point Dashboard', layout='wide')
-
-# ---------- DATA LOAD ----------
-@st.cache_data(ttl=600)
-def load_data():
-    df = pd.read_csv('data/cleaned/enhanced_energy_features_final.csv')
-    df = df.sort_values(['country', 'year'])
-    df['renewables_5yr_change'] = df.groupby('country')['renewables_share_pct'].diff(periods=5)
+# -------------------------
+# Data loading (NO widgets here)
+# -------------------------
+@st.cache_data
+def load_data(data/cleaned/enhanced_energy_features_final.csv) -> pd.DataFrame:
+    df = pd.read_csv(data/cleaned/enhanced_energy_features_final.csv)
     df = df.dropna(subset=['country', 'region', 'co2_per_capita_t'])
+
+    # Normalize UK names
+    df["country"] = df["country"].replace({
+        "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
+        "UK": "United Kingdom"
+    })
+    mask_uk = df["country"].str.contains(r"united\s*kingdom", case=False, na=False)
+    df.loc[mask_uk, "country"] = "United Kingdom"
     return df
 
-df = load_data()
+def build_geo_meta(df: pd.DataFrame) -> pd.DataFrame:
+    geo_cols = ['region', 'subregion', 'country'] if 'subregion' in df.columns else ['region', 'country']
+    geo_meta = df[geo_cols].drop_duplicates()
 
-# ---------- HELPERS ----------
-def choose_geo_col_for_color(levels_to_use):
-    return "subregion" if "Subregion" in levels_to_use and "subregion" in df.columns else "region"
+    # Ensure UK present
+    if "United Kingdom" in df["country"].values and "United Kingdom" not in geo_meta["country"].values:
+        uk_row = (df[df["country"] == "United Kingdom"][geo_cols].drop_duplicates().head(1))
+        if uk_row.empty:
+            uk_row = pd.DataFrame([{
+                "region": "Europe",
+                "subregion": "Northern Europe" if "subregion" in geo_cols else None,
+                "country": "United Kingdom"
+            }])
+        geo_meta = pd.concat([geo_meta, uk_row], ignore_index=True).drop_duplicates()
+    return geo_meta
 
-def select_all_clear_all(label, options, key_prefix):
-    c1, c2, c3 = st.sidebar.columns([3, 1, 1])
-    with c1:
-        picked = st.sidebar.multiselect(label, options, key=f"{key_prefix}_multiselect")
-    with c2:
-        if st.sidebar.button("All", key=f"{key_prefix}_all"):
-            picked = options
-            st.session_state[f"{key_prefix}_multiselect"] = options
-    with c3:
-        if st.sidebar.button("None", key=f"{key_prefix}_none"):
-            picked = []
-            st.session_state[f"{key_prefix}_multiselect"] = []
-    return picked
-
-def build_tree(meta):
-    tree = {}
-    for _, r in meta.iterrows():
-        region = r.get("region", "Unknown")
-        subreg = r.get("subregion", "Unknown") if "subregion" in meta.columns else None
-        country = r["country"]
-        tree.setdefault(region, {})
-        if subreg:
-            tree[region].setdefault(subreg, []).append(country)
+# Tree helpers (no widgets)
+def build_tree(geo_meta: pd.DataFrame):
+    tree_data = {}
+    for _, row in geo_meta.iterrows():
+        region = row['region']
+        subregion = row['subregion'] if 'subregion' in row else None
+        country = row['country']
+        if region not in tree_data:
+            tree_data[region] = {}
+        if subregion and subregion not in tree_data[region]:
+            tree_data[region][subregion] = []
+        if subregion:
+            tree_data[region][subregion].append(country)
         else:
-            tree[region].setdefault("_countries", []).append(country)
-    return tree
+            tree_data[region].setdefault('countries', []).append(country)
+    return tree_data
 
-def to_nodes(tree):
+def to_nodes(tree_data):
     nodes = []
-    for reg, subs in tree.items():
-        kids = []
-        for sub, countries in subs.items():
-            if sub == "_countries":
-                kids.extend([{"label": c, "value": c} for c in countries])
+    for region, sub_data in tree_data.items():
+        region_node = {'label': region, 'value': region, 'children': []}
+        for subregion, countries in sub_data.items():
+            if subregion != 'countries':
+                sub_node = {
+                    'label': subregion,
+                    'value': subregion,
+                    'children': [{'label': c, 'value': c} for c in countries]
+                }
+                region_node['children'].append(sub_node)
             else:
-                kids.append({"label": sub, "value": sub,
-                             "children": [{"label": c, "value": c} for c in countries]})
-        nodes.append({"label": reg, "value": reg, "children": kids})
+                region_node['children'].extend([{'label': c, 'value': c} for c in countries])
+        nodes.append(region_node)
     return nodes
 
 def safe_tree_select(nodes):
     try:
-        sel = tree_select(nodes, check_model="leaf", only_leaf_check=True, expand_all=True)
-    except TypeError:
-        try:
-            sel = tree_select(nodes, check_model="leaf")
-        except TypeError:
-            sel = tree_select(nodes)
-    if isinstance(sel, dict):
-        checked = sel.get("checked", [])
-        return [x.get("value", x) if isinstance(x, dict) else x for x in checked]
-    return [x.get("value", x) if isinstance(x, dict) else x for x in sel]
+        from streamlit_tree_select import tree_select
+        selected = tree_select(nodes, key="geo_tree")
+        return selected.get('checked', [])
+    except ImportError:
+        st.warning("streamlit_tree_select not installed. Using default countries.")
+        return ['Germany', 'France']  # Optional fallback
 
-# ---------- SIDEBAR FILTERS (CLEANED) ----------
-st.sidebar.header("🔍 Filters")
+# -------------------------
+# Main app
+# -------------------------
+def main():
+    st.title("CO₂ Emissions Dashboard")
 
-geo_cols = [c for c in ["region", "subregion", "country"] if c in df.columns]
-if "country" not in geo_cols:
-    st.error("The dataset needs a 'country' column.")
-    st.stop()
-geo_meta = df[geo_cols].drop_duplicates()
+    # ---- Resolve CSV path ----
+    BASE_DIR = Path(__file__).resolve().parent
+    DATA_PATH = BASE_DIR / "enhanced_energy_features_final.csv"
 
-# ---- Geography (tree only) ----
-with st.sidebar.expander("🌍 Geography", expanded=True):
-    if not TREE_OK:
-        st.error("`streamlit-tree-select` is missing. Add it to requirements.txt.")
+    if not DATA_PATH.exists():
+        st.error(f"'enhanced_energy_features_final.csv' not found in {BASE_DIR}")
+        uploaded = st.sidebar.file_uploader("Upload enhanced_energy_features_final.csv", type="csv")
+        if uploaded is None:
+            st.stop()
+        df = pd.read_csv(uploaded)
+        df = df.dropna(subset=['country', 'region', 'co2_per_capita_t'])
+    else:
+        df = load_data(DATA_PATH)
+
+    # Build geo meta outside cache so we can debug with widgets safely
+    geo_meta = build_geo_meta(df)
+
+    # ---- Sidebar widgets (safe) ----
+    st.sidebar.header("Filters")
+
+    # Debug toggles
+    show_uk_debug = st.sidebar.checkbox("🛠 Show UK debug", False)
+    show_geo_debug = st.sidebar.checkbox("🛠 Show geo_meta debug", False)
+    show_tree_debug = st.sidebar.checkbox("🛠 Show tree debug", False)
+
+    # Year selector
+    years = sorted(df['year'].dropna().unique().astype(int))
+    if len(years) == 0:
+        st.error("No 'year' values found in the dataset.")
         st.stop()
+    if len(years) == 1:
+        selected_year = years[0]
+        st.sidebar.info(f"Only one year available: {selected_year}")
+    else:
+        selected_year = st.sidebar.slider("Select Year",
+                                          min_value=years[0],
+                                          max_value=years[-1],
+                                          value=years[-1])
 
+    # Geography tree selector
     tree_data = build_tree(geo_meta)
     nodes = to_nodes(tree_data)
-    picked = safe_tree_select(nodes)
-    countries_selected = picked or geo_meta["country"].tolist()
+    if show_tree_debug:
+        st.write("Tree nodes:", nodes)
 
-    # figure out which level to color/legend by
-    sel_rows = geo_meta[geo_meta["country"].isin(countries_selected)]
-    levels_to_use = []
-    if "subregion" in geo_cols and sel_rows["subregion"].nunique() > 1:
-        levels_to_use.append("Subregion")
-    if sel_rows["region"].nunique() > 1:
-        levels_to_use.append("Region")
+    countries_selected = safe_tree_select(nodes)
 
-color_col = choose_geo_col_for_color(levels_to_use)
+    # Force include UK if checkbox set
+    force_uk = st.sidebar.checkbox("Force include United Kingdom", value=True, key="force_uk_cb")
+    if force_uk and "United Kingdom" in df["country"].values and "United Kingdom" not in countries_selected:
+        countries_selected = list(countries_selected) + ["United Kingdom"]
 
-# ---- Year ----
-with st.sidebar.expander("📅 Year", expanded=True):
-    selected_year = st.slider(
-        "Select Year",
-        int(df['year'].min()),
-        int(df['year'].max()),
-        int(df['year'].max()),
-        key="select_year_slider"
+    # Sidebar debug output
+    st.sidebar.write("Selected countries:", countries_selected)
+
+    # ---- Debug prints (safe because not cached) ----
+    if show_uk_debug:
+        st.write("UK in dataset?", df['country'].eq("United Kingdom").any())
+        if df['country'].eq("United Kingdom").any():
+            st.write("UK data sample:", df[df['country'] == "United Kingdom"][
+                ['country', 'year', 'renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
+            ].head())
+
+    if show_geo_debug:
+        st.write("UK in geo_meta?", geo_meta['country'].eq("United Kingdom").any())
+        st.write("geo_meta sample:", geo_meta[geo_meta['country'] == "United Kingdom"])
+
+    # ---------------- Visual 10 -----------------
+    st.subheader("Visual 10: What-If Explorer")
+
+    df_year = df[df['year'] == selected_year]
+    df_filtered = df_year[df_year['country'].isin(countries_selected)]
+
+    # Debug: Check UK in filtered data
+    st.write("UK in df_filtered?",
+             df_filtered[df_filtered['country'] == "United Kingdom"][
+                 ['country', 'year', 'renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
+             ])
+
+    # Failsafe for UK missing in selected year
+    uk_data = df_year[df_year['country'] == "United Kingdom"]
+    if "United Kingdom" in countries_selected and uk_data.empty and "United Kingdom" in df['country'].values:
+        st.warning("UK data missing for selected year. Using latest available year.")
+        uk_data = df[df['country'] == "United Kingdom"].sort_values('year', ascending=False).head(1)
+        df_filtered = pd.concat([df_filtered, uk_data], ignore_index=True)
+
+    # Create synthetic heatmap (replace with real model)
+    x_range = np.linspace(0, 100, 50)  # Renewables share (%)
+    y_range = np.linspace(0, 20, 50)   # Energy intensity (MJ/USD)
+    Z = np.random.rand(50, 50) * 10    # Simulated CO₂ per capita
+
+    fig_pred = go.Figure()
+    fig_pred.add_trace(go.Heatmap(
+        x=x_range,
+        y=y_range,
+        z=Z,
+        colorscale='Viridis',
+        colorbar=dict(title="Predicted CO₂ per capita (t)")
+    ))
+
+    # Add scatter points
+    df_filtered = df_filtered.dropna(subset=['renewables_share_pct', 'energy_intensity_mj_usd'])
+    if not df_filtered.empty:
+        fig_pred.add_trace(go.Scatter(
+            x=df_filtered['renewables_share_pct'],
+            y=df_filtered['energy_intensity_mj_usd'],
+            mode="markers",
+            marker=dict(size=6, opacity=0.7, color="red"),
+            text=df_filtered['country'],
+            name="Current countries"
+        ))
+
+    # Compare to country
+    compare_pool = df_year[df_year['country'].isin(countries_selected)]
+    if compare_pool.empty:
+        compare_pool = df[df['country'].isin(countries_selected)]
+    compare_options = sorted(compare_pool['country'].unique())
+    st.write("Compare options:", compare_options)
+
+    default_index = compare_options.index("United Kingdom") if "United Kingdom" in compare_options else 0
+    compare_country = st.selectbox("Compare to country", compare_options, index=default_index)
+
+    if compare_country:
+        compare_data = df_filtered[df_filtered['country'] == compare_country]
+        if not compare_data.empty:
+            fig_pred.add_trace(go.Scatter(
+                x=compare_data['renewables_share_pct'],
+                y=compare_data['energy_intensity_mj_usd'],
+                mode="markers",
+                marker=dict(size=10, color="blue", symbol="star"),
+                text=[compare_country],
+                name=f"{compare_country} (selected)"
+            ))
+
+    fig_pred.update_layout(
+        xaxis_title="Renewables Share (%)",
+        yaxis_title="Energy Intensity (MJ/USD)",
+        height=500
     )
+    st.plotly_chart(fig_pred, use_container_width=True)
 
-# ---- Metric ----
-with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
-    selected_metric = st.radio(
-        "Select a metric to display:",
-        ["renewables_share_pct", "co2_per_capita_t"],
-        format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
-        key="selected_metric"
-    )
-
-# ---------- APPLY FILTERS ----------
-df_year = df[df['year'] == selected_year]
-df_filtered = df_year[df_year['country'].isin(countries_selected)]
-if df_filtered.empty:
-    st.warning("No data for the chosen filters. Adjust your selections.")
-    st.stop()
-
-# ---------- PAGE TOP ----------
-st.title("Climate Tipping Points: How Renewables & Efficiency Cut CO₂ for a Greener Future")
-
-st.markdown(
-    """
-    <div style='font-size:17px; line-height:1.6; margin-bottom: 1rem;'>
-        Explore global energy trends, CO₂ emissions, and renewable energy adoption.<br>
-        Use the filters to see who’s leading the change and where tipping points are accelerating climate action.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <div title="See which filters affect which sections of the dashboard." 
-         style='font-size:17px; font-weight:bold; margin-bottom: -8px;'>
-        ℹ️ How Filters Work
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-with st.expander("ℹ Filter Guide 👈"):
-    lvl_txt = ", ".join(levels_to_use) if levels_to_use else "All"
-    st.markdown(
-        f"""
-        **Filter Logic:**
-
-        - **Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
-          *(If you leave everything unchecked, all countries are included by default.)*
-
-        - **Year Slider**  
-          - **Applies to Visuals** **2–9**  
-          - **Does NOT change Visual 1** *(Visual 1 always shows the full 2000–2020 trend)*
-
-        - **Metric Selector** (Sidebar radio button) → Applies to Visuals **3–5**  
-
-        **Current Selection:**  
-          - Countries included: **{len(countries_selected)}**  
-          - Geographic Levels chosen: **{lvl_txt}**  
-          - Selected Year: **{selected_year}**
-        """,
-        unsafe_allow_html=True
-    )
-
-# ---------- 1. Global Progress Over Time ----------
-st.markdown("### 1. Global Progress Over Time (2000–2020)")
-yearly = df[df['country'].isin(countries_selected)].groupby('year').agg({
-    'renewables_share_pct': 'mean',
-    'co2_per_capita_t': 'mean',
-    'elec_access_pct': 'mean'
-}).reset_index()
-yearly_long = yearly.melt(id_vars='year', var_name='Indicator', value_name='Value')
-
-fig_trend = px.line(
-    yearly_long, x='year', y='Value',
-    color='Indicator', facet_col='Indicator', facet_col_wrap=1,
-    color_discrete_map={'renewables_share_pct': '#1f77b4',
-                        'co2_per_capita_t': '#ff7f0e',
-                        'elec_access_pct': '#2ca02c'},
-    labels={'year': 'Year', 'Value': ''},
-    title='Global Trends (2000–2020)'
-)
-fig_trend.update_yaxes(matches=None, title_text='')
-fig_trend.for_each_annotation(lambda a: a.update(text=a.text.split('=')[1]))
-fig_trend.update_layout(showlegend=False, title={'x': 0.5})
-st.plotly_chart(fig_trend, use_container_width=True)
-
-# ---------- 2. Country Leaders ----------
-st.markdown("---")
-st.markdown("### 2. Country Leaders in Climate Action")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    top_renew = df_filtered.sort_values(by='renewables_share_pct', ascending=False).head(10)
-    fig1 = px.bar(
-        top_renew, x='renewables_share_pct', y='country',
-        orientation='h', color=color_col,
-        title=f'Top 10 Countries by Renewables Share ({selected_year})'
-    )
-    fig1.update_layout(yaxis=dict(autorange="reversed"))
-    st.plotly_chart(fig1, use_container_width=True)
-
-with col2:
-    tmp = df[df['country'].isin(countries_selected)][['country', 'year', 'co2_per_capita_t']].dropna()
-    co2_diff = tmp.pivot_table(index='country', columns='year', values='co2_per_capita_t')
-    year_cols = sorted(col for col in co2_diff.columns if pd.api.types.is_number(col))
-    if len(year_cols) >= 2:
-        co2_diff = co2_diff.dropna(subset=[year_cols[0], year_cols[-1]])
-        co2_diff['change'] = co2_diff[year_cols[-1]] - co2_diff[year_cols[0]]
-        top_reducers = co2_diff.nsmallest(10, 'change').reset_index()
-        top_reducers = top_reducers.merge(df[['country', color_col]].drop_duplicates(),
-                                          on='country', how='left')
-        fig2 = px.bar(
-            top_reducers.dropna(subset=[color_col]),
-            x='change', y='country',
-            orientation='h', color=color_col,
-            title=f"Top 10 CO₂ Reducers ({year_cols[0]}–{year_cols[-1]})"
-        )
-        fig2.update_layout(yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.warning("Not enough year data to compute CO₂ change.")
-
-# ---------- 3. Emissions vs Efficiency ----------
-st.markdown("---")
-st.markdown("### 3. Emissions vs Efficiency Explorer")
-
-fig3 = px.scatter(
-    df_filtered,
-    x='energy_intensity_mj_usd',
-    y='co2_per_capita_t',
-    size='renewables_share_pct',
-    color=color_col,
-    hover_name='country',
-    title='Energy Intensity vs CO₂ per Capita (bubble size = Renewables %)',
-    labels={'energy_intensity_mj_usd': 'Energy Intensity (MJ/USD)',
-            'co2_per_capita_t': 'CO₂ per Capita (t)',
-            'renewables_share_pct': 'Renewables Share (%)'},
-    size_max=60
-)
-st.plotly_chart(fig3, use_container_width=True)
-
-# ---------- 4. Momentum Heatmap ----------
-st.markdown("---")
-st.markdown("### 4. Momentum in Selected Metric (5-Year Change)")
-
-agg_col = color_col
-momentum = df[df['country'].isin(countries_selected)].groupby([agg_col, 'year'])[selected_metric].mean().reset_index()
-momentum_pivot = momentum.pivot(index=agg_col, columns='year', values=selected_metric).diff(axis=1).fillna(0)
-
-fig_heat = px.imshow(
-    momentum_pivot,
-    text_auto=True,
-    aspect='auto',
-    color_continuous_scale='Greens',
-    labels=dict(color="5-Year Δ")
-)
-fig_heat.update_layout(
-    xaxis=dict(title_font=dict(size=14), tickfont=dict(size=12)),
-    yaxis=dict(title_font=dict(size=14), tickfont=dict(size=12)),
-    title=f"5-Year Change in {selected_metric.replace('_',' ').title()} by {agg_col.title()}"
-)
-st.plotly_chart(fig_heat, use_container_width=True)
-
-# ---------- 5. Quadrant Chart ----------
-st.markdown("---")
-st.markdown("### 5. CO₂ per Capita vs Energy Intensity (Quadrant)")
-
-fig_quad = px.scatter(
-    df_filtered,
-    x='energy_intensity_mj_usd',
-    y='co2_per_capita_t',
-    color=color_col,
-    color_discrete_sequence=px.colors.qualitative.Set2,
-    size='log_gdp_pc_usd',
-    size_max=60,
-    hover_name='country',
-    labels={'energy_intensity_mj_usd': 'Energy Intensity (MJ/$)',
-            'co2_per_capita_t': 'CO₂ per Capita (t)',
-            'log_gdp_pc_usd': 'Log GDP per Capita'},
-    title=f'CO₂ per Capita vs Energy Intensity by {color_col.title()}'
-)
-fig_quad.add_shape(
-    type='line',
-    x0=df_filtered['energy_intensity_mj_usd'].mean(),
-    x1=df_filtered['energy_intensity_mj_usd'].mean(),
-    y0=df_filtered['co2_per_capita_t'].min(),
-    y1=df_filtered['co2_per_capita_t'].max(),
-    line=dict(dash='dash', color='gray')
-)
-fig_quad.add_shape(
-    type='line',
-    y0=df_filtered['co2_per_capita_t'].mean(),
-    y1=df_filtered['co2_per_capita_t'].mean(),
-    x0=df_filtered['energy_intensity_mj_usd'].min(),
-    x1=df_filtered['energy_intensity_mj_usd'].max(),
-    line=dict(dash='dash', color='gray')
-)
-st.plotly_chart(fig_quad, use_container_width=True)
-
-# ---------- 6. CO₂ Distribution Over Time ----------
-st.markdown("---")
-st.markdown("### 6. CO₂ Distribution Over Time")
-
-df_box = df[df['country'].isin(countries_selected)].copy()
-max_year = df['year'].max()
-bins = [2000, 2010, 2020, max_year + 1]
-labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
-df_box['period'] = pd.cut(df_box['year'], bins=bins, labels=labels)
-
-fig_box = px.box(
-    df_box,
-    x='period',
-    y='co2_per_capita_t',
-    color=color_col,
-    labels={'co2_per_capita_t': 'CO₂ per Capita (t)', 'period': 'Time Period'},
-    title=f'CO₂ per Capita Distribution by {color_col.title()} Over Time'
-)
-st.plotly_chart(fig_box, use_container_width=True)
-
-# ---------- 7. Energy Mix Transition ----------
-st.markdown("---")
-st.markdown("### 7. Energy Mix Transition by Region")
-
-mix = df_year[df_year['country'].isin(countries_selected)] \
-    .groupby('region')[['fossil_elec_twh', 'renew_elec_twh', 'nuclear_elec_twh']].sum().reset_index()
-
-if not mix.empty:
-    labels = list(mix['region']) + ['Fossil', 'Renewables']
-    source = list(range(len(mix))) * 2
-    target = [len(mix)] * len(mix) + [len(mix) + 1] * len(mix)
-    value = list(mix['fossil_elec_twh']) + list(mix['renew_elec_twh'])
-
-    fig_sankey = go.Figure(data=[go.Sankey(
-        arrangement="snap",
-        node=dict(pad=20, thickness=40, line=dict(color="black", width=0.8),
-                  label=labels,
-                  color=["#a1d99b"] * len(mix) + ["#e34a33", "#2b8cbe"]),
-        link=dict(source=source, target=target, value=value,
-                  color=["rgba(160,160,160,0.2)"] * len(mix) + ["rgba(34,139,34,0.3)"] * len(mix))
-    )])
-    st.plotly_chart(fig_sankey, use_container_width=True)
-else:
-    st.warning("No data available to plot the energy mix Sankey diagram.")
-
-# ---------- 8. Top 5-Year Renewable Gainers ----------
-st.markdown("---")
-st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
-
-top_gainers = df[df['year'] == selected_year]
-top_gainers = top_gainers[top_gainers['country'].isin(countries_selected)] \
-    .sort_values(by='renewables_5yr_change', ascending=False).head(10)
-
-fig_bar = px.bar(
-    top_gainers,
-    x='country',
-    y='renewables_5yr_change',
-    labels={'renewables_5yr_change': '5-Year Gain (%)'},
-    color=color_col,
-    title=f'Top 10 Countries by Renewable Energy Growth ({selected_year})'
-)
-st.plotly_chart(fig_bar, use_container_width=True)
-
-# ---------- 9. Global Map ----------
-st.markdown("---")
-st.markdown("### 🌍 9. Global View: Energy & Emissions Landscape")
-st.markdown("##### **Select a Metric from the Dropdown to Display on the Map**")
-
-map_metric_options = {
-    "Renewables Share (%)": "renewables_share_pct",
-    "CO₂ per Capita (t)": "co2_per_capita_t",
-    "Energy Intensity (MJ/$)": "energy_intensity_mj_usd",
-    "Log GDP per Capita": "log_gdp_pc_usd",
-    "Low‑Carbon Electricity (%)": "low_carbon_elec_pct",
-    "Electricity Access (%)": "elec_access_pct",
-    "Clean Fuel Access (%)": "clean_fuels_access_pct",
-    "Renewable Capacity (kW/person)": "renew_cap_kw_pc",
-    "Climate Finance (USD)": "climate_finance_usd"
-}
-
-selected_map_label = st.selectbox(
-    label="Select a Metric",
-    options=list(map_metric_options.keys()),
-    label_visibility="collapsed"
-)
-selected_map_metric = map_metric_options[selected_map_label]
-
-map_data = df[df['year'] == selected_year]
-map_data = map_data[map_data['country'].isin(countries_selected)]
-map_data = map_data[map_data[selected_map_metric].notna()]
-
-fig_map = px.choropleth(
-    map_data,
-    locations="country",
-    locationmode="country names",
-    color=selected_map_metric,
-    hover_name="country",
-    hover_data={selected_map_metric: True, color_col: True,
-                "renewables_share_pct": True, "co2_per_capita_t": True},
-    color_continuous_scale="Viridis",
-    title=f"{selected_map_label} by Country – {selected_year}"
-)
-fig_map.update_layout(
-    margin=dict(l=0, r=0, t=50, b=0),
-    coloraxis_colorbar=dict(title=selected_map_label, ticks="outside", len=0.75)
-)
-st.plotly_chart(fig_map, use_container_width=True)
+if __name__ == "__main__":
+    main()
