@@ -237,7 +237,7 @@ with st.sidebar.expander("📅 Year", expanded=True):
     )
 
 # Metric
-with st.sidebar.expander("📈 Metric (for Visuals 3-5)", expanded=False):
+with st.sidebar.expander("📈 Metric (for Visuals 5-7)", expanded=False):
     selected_metric = st.radio(
         "Select a metric to display:",
         ["renewables_share_pct", "co2_per_capita_t"],
@@ -259,18 +259,20 @@ if df_filtered.empty:
     st.warning("No data for the chosen filters. Adjust your selections.")
     st.stop()
 
+
 # ---------- PAGE TOP ----------
 st.title("Climate Tipping Points: How Renewables & Efficiency Cut CO₂ for a Greener Future")
 
-st.markdown(
-    """
-    <div style='font-size:17px; line-height:1.6; margin-bottom: 1rem;'>
-        Explore global energy trends, CO₂ emissions, and renewable energy adoption.<br>
-        Use the filters to see who’s leading the change and where tipping points are accelerating climate action.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# Intro paragraph
+st.markdown("""
+<div style='font-size:18px; line-height:1.6; margin-bottom: 1rem;'>
+    This project explores global energy trends, CO₂ emissions, and renewable energy adoption.<br>
+    Use the filters to see who’s leading the change and where tipping points are accelerating climate action.
+</div>
+
+---
+""", unsafe_allow_html=True)
+
 
 st.markdown(
     """
@@ -282,19 +284,19 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-with st.expander("ℹ Filter Guide 👈"):
+with st.expander("ℹ **Filter Guide** 👈"):
     lvl_txt = ", ".join(levels_to_use) if levels_to_use else "All"
     st.markdown(
         f"""
-**Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
+**Geography (Region/Subregion/Country)** → Applies to Visuals **2–10**  
 *(No selection = all countries by default)*
 
-**Year slider** → Applies to Visuals **2–3, 5-9** and the **dots/metric in Visual 10**  
-*(Visual 1 always shows Year=2000–2020)*
+**Year slider** → Applies to Visuals **3-4 6-10** and the **dots/metric in Visual 11**  
+*(Visual 2 always shows Year=2000–2020)*
 
-**Metric selector (radio button)** → Applies to Visuals **3–5**
+**Metric selector (radio button)** → Applies to Visuals **5–7**
 
-**Visual 10**  
+**Visual 11**  
 - Heatmap (model surface) = fixed model (not filtered)  
 - Red dots & ✖ = selected Geography + Year  
 - ⭐ = your scenario → set by sliders inside Visual 10  
@@ -308,8 +310,165 @@ with st.expander("ℹ Filter Guide 👈"):
         unsafe_allow_html=True
     )
 
-# ---------- 1. Global Progress Over Time ----------
-st.markdown("### 1. Global Averages: Renewables, CO₂ per Capita & Energy Access (2000–2020)")
+
+
+with st.expander("📊 **Descriptive Analysis**", expanded=False):
+    lvl_txt = ", ".join(levels_to_use) if levels_to_use else "All"
+
+    # ---------- PAGE SETUP ----------
+    st.markdown("### Descriptive Analysis")
+
+    st.markdown("""
+    <div style='font-size:17px; line-height:1.6;'>
+
+    This section lays the foundation for identifying patterns and supporting the <b>Climate Tipping Points hypothesis</b> through key statistics and data exploration.<br><br>
+
+    <b>Descriptive statistics</b> help summarise and interpret data across <b>energy access</b>, <b>CO₂ emissions</b>, and <b>renewables share</b>.<br><br>
+
+    <b>Core concepts include:</b><br>
+    • <b>Mean</b> – the average value, offering a sense of central tendency<br>
+    • <b>Median</b> – the middle value in an ordered dataset, helpful when data is skewed<br>
+    • <b>Standard Deviation</b> – shows how much values vary around the mean<br><br>
+
+    These metrics simplify complex datasets, revealing <b>typical behaviours</b>, <b>outliers</b>, and <b>regional disparities</b> in how countries consume energy or emit carbon.
+
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---------- VARIABILITY & UNCERTAINTY ----------
+    st.markdown("#### Understanding Variability & Uncertainty")
+    st.markdown("""
+    Probability plays a key role in assessing uncertainty. It supports data-driven predictions and hypothesis testing — for example, evaluating whether an increase in <b>climate finance support</b> is associated with a rise in <b>renewables share</b>.
+    """, unsafe_allow_html=True)
+
+    # ---------- DATA METRICS (2000–2020) ----------
+    st.markdown("#### What the Data Shows (2000–2020)")
+    st.markdown("""
+    This dashboard opens with a statistical lens on three key metrics:
+
+    **Central tendencies — Mean & Median for:**
+    - Renewable energy share
+    - CO₂ emissions per capita
+    - Energy intensity (MJ per USD)
+
+    **Variability — Standard deviation & variance**, highlighting uneven progress across countries and regions.
+    """)
+
+    # ---------- HYPOTHESIS TESTING PLACEHOLDER ----------
+    st.markdown("#### Hypothesis Exploration")
+    st.markdown("""
+    A simple linear regression explores three hypotheses:
+
+    - **H1:** Higher renewable share → lower CO₂ per capita  
+    - **H2:** Crossing 30% renewables share acts as a tipping point that accelerates CO₂ decline  
+    - **H3:** Lower energy intensity (MJ/$) → lower CO₂ per capita  
+    """)
+
+    # Optional vertical space
+    st.markdown("<br>", unsafe_allow_html=True)
+
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ---------- VISUAL 1:Summary Boxplot of Key Indicators ----------
+
+st.markdown("### 1. Statistical Summary: Renewable Energy, CO₂ Emissions, and Energy Intensity")
+
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+# Prepare data
+df_long = df[['renewables_share_pct', 'co2_per_capita_t', 'energy_intensity_mj_usd']].copy()
+df_long = df_long.rename(columns={
+    'renewables_share_pct': 'Renewables Share (%)',
+    'co2_per_capita_t': 'CO₂ per Capita (t)',
+    'energy_intensity_mj_usd': 'Energy Intensity (MJ/USD)'
+})
+df_long = df_long.melt(var_name='Indicator', value_name='Value')
+
+# Calculate median and mean for display
+summary_stats = df_long.groupby('Indicator')['Value'].agg(['mean', 'median']).reset_index()
+summary_stats[['mean', 'median']] = summary_stats[['mean', 'median']].round(2)
+
+# Plot
+fig = px.box(
+    df_long,
+    x="Indicator",
+    y="Value",
+    color="Indicator",
+    points=False,
+    title="Distribution of Key Indicators (2000–2020)",
+    color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"]
+)
+
+# Add mean and median lines
+for i, row in summary_stats.iterrows():
+    fig.add_shape(
+        type="line",
+        x0=i - 0.4,
+        x1=i + 0.4,
+        y0=row['mean'],
+        y1=row['mean'],
+        line=dict(color="black", dash="dash"),
+        xref="x", yref="y"
+    )
+    fig.add_shape(
+        type="line",
+        x0=i - 0.4,
+        x1=i + 0.4,
+        y0=row['median'],
+        y1=row['median'],
+        line=dict(color="black", dash="solid"),
+        xref="x", yref="y"
+    )
+
+fig.update_layout(
+    showlegend=False,
+    height=500,
+    margin=dict(t=50, b=30),
+    yaxis_title=None,
+    xaxis_title=None,
+    title_font_size=18
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# Display summary table
+st.markdown("**Mean and Median Values**")
+st.dataframe(summary_stats.rename(columns={'mean': 'Mean', 'median': 'Median'}), use_container_width=True)
+
+
+st.markdown("""
+This boxplot summarises the global spread of three critical metrics between 2000 and 2020. Each plot provides insights into the <b>“typical” situation</b> (via mean and median) and the <b>variability</b> (range and outliers) that characterise different countries’ progress on energy and climate.<br><br>
+
+<b>1. Renewables Share (%)</b><br>
+• <b>Mean:</b> 33.4%&nbsp;&nbsp;&nbsp;&nbsp;<b>Median:</b> 24.68%<br>
+• The median is below 30%, highlighting that <b>over half of the countries remain below the tipping point threshold</b> identified in Hypothesis 2.<br>
+• The wide range (0–98%) and high variance show <b>uneven global adoption</b>—some countries rely heavily on renewables, while many lag far behind.<br>
+• This validation can be found in the statistical and visual analyses on whether crossing the <b>30% renewables threshold triggers CO₂ decline presented in the report</b>.<br><br>
+
+<b>2. CO₂ per Capita (tonnes)</b><br>
+• <b>Mean:</b> 4.7&nbsp;&nbsp;&nbsp;&nbsp;<b>Median:</b> 2.66<br>
+• The mean is skewed upward by a small group of <b>high-emitting countries</b> (some over 20 tonnes per person).<br>
+• Most countries emit <b>less than 5 tonnes per capita</b>, showing large disparities in emissions footprints.<br>
+• This supports Hypothesis 1 — <b>lower emissions may be tied to higher renewables or better energy efficiency</b>.<br><br>
+
+<b>3. Energy Intensity (MJ/USD)</b><br>
+• <b>Mean:</b> 5.36&nbsp;&nbsp;&nbsp;&nbsp;<b>Median:</b> 4.37<br>
+• A lower energy intensity means more economic output per unit of energy — a proxy for <b>energy efficiency</b>.<br>
+• The right-skew suggests <b>most countries have improved efficiency</b>, though a few remain highly energy intensive.<br>
+• This underpins Hypothesis 3 — <b>better energy efficiency tends to correlate with lower CO₂ emissions</b>.<br><br>
+
+
+<b>Summary:</b><br>
+The statistical summary shows that <b>renewables adoption is still below the 30% tipping point for most countries</b>, while <b>CO₂ emissions and energy efficiency vary widely</b>. This highlights the importance of tracking when and how countries cross key thresholds — especially 30% renewables — as potential turning points in the fight against climate change.
+
+---
+""", unsafe_allow_html=True)
+
+
+
+# ---------- 2. Global Progress Over Time ----------
+st.markdown("### 2. Global Averages: Renewables, CO₂ per Capita & Energy Access (2000–2020)")
 yearly = df[df['country'].isin(countries_selected)].groupby('year').agg({
     'renewables_share_pct': 'mean',
     'co2_per_capita_t': 'mean',
@@ -331,9 +490,9 @@ fig_trend.for_each_annotation(lambda a: a.update(text=a.text.split('=')[1]))
 fig_trend.update_layout(showlegend=False, title={'x': 0.5})
 st.plotly_chart(fig_trend, use_container_width=True)
 
-# ---------- 2. Country Leaders ----------
+# ---------- 3. Country Leaders ----------
 st.markdown("---")
-st.markdown("### 2. Country Leaders in Climate Action")
+st.markdown("### 3. Country Leaders in Climate Action")
 
 col1, col2 = st.columns(2)
 
@@ -374,9 +533,9 @@ with col2:
     else:
         st.warning("Not enough year data to compute CO₂ change.")
 
-# ---------- 3. Emissions vs Efficiency ----------
+# ---------- 4. Emissions vs Efficiency ----------
 st.markdown("---")
-st.markdown("### 3. CO₂ Emissions vs Energy Intensity (Bubble Size: Renewables Share)")
+st.markdown("### 4. CO₂ Emissions vs Energy Intensity (Bubble Size: Renewables Share)")
 
 fig3 = px.scatter(
     df_filtered,
@@ -393,9 +552,9 @@ fig3 = px.scatter(
 )
 st.plotly_chart(fig3, use_container_width=True)
 
-# ---------- 4. Momentum Heatmap ----------
+# ---------- 5. Momentum Heatmap ----------
 st.markdown("---")
-st.markdown("### 4. Renewables Momentum Heatmap (5-Year Change)")
+st.markdown("### 5. Renewables Momentum Heatmap (5-Year Change)")
 
 agg_col = color_col
 momentum = df[df['country'].isin(countries_selected)].groupby([agg_col, 'year'])[selected_metric].mean().reset_index()
@@ -416,9 +575,9 @@ fig_heat.update_layout(
 )
 st.plotly_chart(fig_heat, use_container_width=True)
 
-# ---------- 5. Quadrant Chart ----------
+# ---------- 6. Quadrant Chart ----------
 st.markdown("---")
-st.markdown("### 5. Energy Efficiency vs CO₂ Emissions: Quadrant Analysis")
+st.markdown("### 6. Energy Efficiency vs CO₂ Emissions: Quadrant Analysis")
 
 fig_quad = px.scatter(
     df_filtered,
@@ -452,9 +611,10 @@ fig_quad.add_shape(
 )
 st.plotly_chart(fig_quad, use_container_width=True)
 
-# ---------- 6. CO₂ Distribution Over Time ----------
+
+# ---------- 7 CO₂ Distribution Over Time ----------
 st.markdown("---")
-st.markdown("### 6. CO₂ Distribution Over Time")
+st.markdown("### 7. CO₂ Distribution Over Time")
 
 # how many years per bucket
 bucket = 10
@@ -492,9 +652,9 @@ fig_box = px.box(
 )
 st.plotly_chart(fig_box, use_container_width=True)
 
-# ---------- 7. Energy Mix Transition ----------
+# ---------- 8. Energy Mix Transition ----------
 st.markdown("---")
-st.markdown("### 7. Energy Mix Transition by Region/Subregion")
+st.markdown("### 8. Energy Mix Transition by Region/Subregion")
 
 mix = df_year[df_year['country'].isin(countries_selected)] \
     .groupby('region')[['fossil_elec_twh', 'renew_elec_twh', 'nuclear_elec_twh']].sum().reset_index()
@@ -520,9 +680,9 @@ if not mix.empty:
 else:
     st.warning("No data available to plot the energy mix Sankey diagram.")
 
-# ---------- 8. Top 5-Year Renewable Gainers ----------
+# ---------- 9. Top 5-Year Renewable Gainers ----------
 st.markdown("---")
-st.markdown("### 8. Top Countries by 5-Year Gain in Renewables")
+st.markdown("### 9. Top Countries by 5-Year Gain in Renewables")
 
 top_gainers = df[df['year'] == selected_year]
 top_gainers = top_gainers[top_gainers['country'].isin(countries_selected)] \
@@ -541,9 +701,9 @@ fig_bar = px.bar(
 )
 st.plotly_chart(fig_bar, use_container_width=True)
 
-# ---------- 9. Global Map ----------
+# ---------- 10. Global Map ----------
 st.markdown("---")
-st.markdown("### 🌍 9. Global View: Energy & Emissions Landscape")
+st.markdown("### 🌍 10. Global View: Energy & Emissions Landscape")
 st.markdown("##### **Select a Metric from the Dropdown to Display on the Map**")
 
 map_metric_options = {
@@ -589,9 +749,9 @@ fig_map.update_layout(
 )
 st.plotly_chart(fig_map, use_container_width=True)
 
-# ---------- 10. CO₂ per Capita – Predictive What‑If Explorer ----------
+# ---------- 11. CO₂ per Capita – Predictive What‑If Explorer ----------
 st.markdown("---")
-st.markdown("### 10. CO₂ per Capita – Predictive Scenario Explorer")
+st.markdown("### 11. CO₂ per Capita – Predictive Scenario Explorer")
 
 train_cols = ['renewables_share_pct', 'energy_intensity_mj_usd', 'co2_per_capita_t']
 df_model = df[train_cols].dropna().copy()
@@ -775,3 +935,5 @@ fig_pred.update_layout(
 
 st.plotly_chart(fig_pred, use_container_width=True)
 st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)
+
+
