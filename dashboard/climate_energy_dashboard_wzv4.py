@@ -237,13 +237,30 @@ with st.sidebar.expander("📅 Year", expanded=True):
     )
 
 # Metric
-with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
+with st.sidebar.expander("📈 Metric (for Visuals 3-5)", expanded=False):
     selected_metric = st.radio(
         "Select a metric to display:",
         ["renewables_share_pct", "co2_per_capita_t"],
         format_func=lambda x: "Renewables Share (%)" if x == "renewables_share_pct" else "CO₂ per Capita (tonnes)",
         key="metric_radio"
     )
+
+# ---- Δ window & smoothing controls for Visual 4 ----
+with st.sidebar.expander("V4: Δ Window + Smoothing (Heatmap)", expanded=False):
+    # dynamic max so it's never out of range
+    max_gap = max(1, min(10, int(selected_year) - int(df['year'].min())))
+    change_win = st.slider(
+        "Compare against N years ago",
+        1, max_gap, 1, step=1,
+        key="heatmap_gap_slider"
+    )
+    smooth_win = st.slider(
+        "Rolling mean (years)",
+        1, 5, 1, step=1,
+        help="Smooth the Δ values across years",
+        key="heatmap_smooth_slider"
+    )
+
 
 # ---------- APPLY FILTERS ----------
 df_year = df[df['year'] == selected_year]
@@ -289,10 +306,14 @@ with st.expander("ℹ Filter Guide 👈"):
 **Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
 *(No selection = all countries by default)*
 
-**Year slider** → Applies to Visuals **2–9** and the **dots/metric in Visual 10**  
+**Year slider** → Applies to Visuals **2-3, 5–9** and the **dots/metric in Visual 10**  
 *(Visual 1 always shows Year=2000–2020)*
 
 **Metric selector (radio button)** → Applies to Visuals **3–5**
+
+**Δ Window & Smoothing (Heatmap)** → Applies to Visual **4** only  
+- **Compare against N years ago**: change vs the value N years earlier (N=1 = YoY).  
+- **Rolling mean (years)**: smooth those deltas horizontally across years.
 
 **Visual 10**  
 - Heatmap (model surface) = fixed model (not filtered)  
@@ -393,30 +414,76 @@ fig3 = px.scatter(
 )
 st.plotly_chart(fig3, use_container_width=True)
 
-# ---------- 4. Momentum Heatmap ----------
+# ---------- 4. Renewables Momentum Heatmap (Change vs Previous Years) ----------
 st.markdown("---")
-st.markdown("### 4. Renewables Momentum Heatmap (5-Year Change)")
+st.markdown("### 4. Renewables Momentum Heatmap (Change vs Previous Years)")
 
 agg_col = color_col
-momentum = df[df['country'].isin(countries_selected)].groupby([agg_col, 'year'])[selected_metric].mean().reset_index()
-momentum = drop_nan_category(momentum, agg_col)  # no country col? still ok
-momentum_pivot = momentum.pivot(index=agg_col, columns='year', values=selected_metric).diff(axis=1).fillna(0)
+N = change_win  # from sidebar
 
-fig_heat = px.imshow(
-    momentum_pivot,
+# Filter to selected countries & years ≤ slider
+momentum_src = df[
+    (df['country'].isin(countries_selected)) &
+    (df['year'] <= selected_year)
+][['country', agg_col, 'year', selected_metric]].dropna()
+
+# Geo fixes
+momentum_src = enforce_geo_labels(momentum_src, geo_meta[['country', agg_col]], agg_col, FORCE_GEO)
+momentum_src = force_geo(momentum_src)
+momentum_src = drop_nan_category(momentum_src, agg_col)
+
+# Pivot: rows = agg_col, cols = year
+wide = (momentum_src
+        .groupby([agg_col, 'year'])[selected_metric]
+        .mean()
+        .unstack()
+        .sort_index(axis=1))
+
+# Ensure numeric years
+wide.columns = wide.columns.astype(int)
+
+# N‑year change
+wide_diff = wide.diff(N, axis=1)
+
+# Rolling smoothing across years (optional)
+if smooth_win > 1:
+    wide_diff = wide_diff.rolling(window=smooth_win, axis=1, min_periods=1).mean()
+
+# Limit to slider year, drop empty columns
+wide_diff = wide_diff.loc[:, [c for c in wide_diff.columns if c <= selected_year]]
+wide_diff = wide_diff.dropna(axis=1, how='all').fillna(0)
+
+if wide_diff.empty:
+    st.warning(f"Not enough data to compute a {N}-year change.")
+else:
+    fig_heat = px.imshow(
+    wide_diff,
     text_auto=True,
     aspect='auto',
     color_continuous_scale='Greens',
-    labels=dict(color="5-Year Δ")
+    labels=dict(color=f"Δ vs {N} yr ago")
+)
+    
+# add hover tooltip to heatmap
+pretty_metric = selected_metric.replace('_', ' ').title()
+fig_heat.update_traces(
+    hovertemplate=(
+        "Year: %{x}<br>"
+        f"{agg_col.title()}: %{{y}}<br>"
+        f"Δ vs {N} yr ago: %{{z:.2f}} ({pretty_metric})"
+        "<extra></extra>"
+    )
 )
 fig_heat.update_layout(
-    xaxis=dict(title_font=dict(size=14), tickfont=dict(size=12)),
-    yaxis=dict(title_font=dict(size=14), tickfont=dict(size=12)),
-    title=f"5-Year Change in {selected_metric.replace('_',' ').title()} by {agg_col.title()}"
+    title=f"Change in {pretty_metric} vs {N}-Year Ago (≤ {selected_year})",
+    xaxis_title="Year",
+    yaxis_title=agg_col.title()
 )
+
 st.plotly_chart(fig_heat, use_container_width=True)
 
-# ---------- 5. Quadrant Chart ----------
+
+# ---------- 5. CO₂ vs Energy Intensity Quadrant Chart ----------
 st.markdown("---")
 st.markdown("### 5. Energy Efficiency vs CO₂ Emissions: Quadrant Analysis")
 

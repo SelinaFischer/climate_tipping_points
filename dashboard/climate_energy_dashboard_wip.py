@@ -237,7 +237,7 @@ with st.sidebar.expander("📅 Year", expanded=True):
     )
 
 # Metric
-with st.sidebar.expander("📈 Metric (for Visuals 3, 4 & 5)", expanded=False):
+with st.sidebar.expander("📈 Metric (for Visuals 3-5)", expanded=False):
     selected_metric = st.radio(
         "Select a metric to display:",
         ["renewables_share_pct", "co2_per_capita_t"],
@@ -289,7 +289,7 @@ with st.expander("ℹ Filter Guide 👈"):
 **Geography (Region/Subregion/Country)** → Applies to Visuals **1–9**  
 *(No selection = all countries by default)*
 
-**Year slider** → Applies to Visuals **2–9** and the **dots/metric in Visual 10**  
+**Year slider** → Applies to Visuals **2–3, 5-9** and the **dots/metric in Visual 10**  
 *(Visual 1 always shows Year=2000–2020)*
 
 **Metric selector (radio button)** → Applies to Visuals **3–5**
@@ -456,15 +456,31 @@ st.plotly_chart(fig_quad, use_container_width=True)
 st.markdown("---")
 st.markdown("### 6. CO₂ Distribution Over Time")
 
-df_box = df[df['country'].isin(countries_selected)].copy()
+# how many years per bucket
+bucket = 10
+
+start_year = int(df['year'].min())
+end_year   = int(selected_year)
+
+# build bin edges every `bucket` years, ending at selected_year
+edges = list(range(start_year, end_year + 1, bucket))
+if edges[-1] != end_year:
+    edges.append(end_year)
+edges.append(end_year + 1)  # upper bound for pd.cut
+
+# labels like "2001–2010"
+labels = [f"{edges[i]}–{edges[i+1]-1}" for i in range(len(edges)-1)]
+
+df_box = df[(df['country'].isin(countries_selected)) &
+            (df['year'] >= start_year) &
+            (df['year'] <= end_year)].copy()
+
+# geo fixes
 df_box = enforce_geo_labels(df_box, geo_meta[['country', color_col]], color_col, FORCE_GEO)
 df_box = force_geo(df_box)
 df_box = drop_nan_category(df_box, color_col)
 
-max_year = df['year'].max()
-bins = [2000, 2010, 2020, max_year + 1]
-labels = ['2001–2010', '2011–2020', f'2021–{max_year}']
-df_box['period'] = pd.cut(df_box['year'], bins=bins, labels=labels)
+df_box['period'] = pd.cut(df_box['year'], bins=edges, labels=labels, right=True, include_lowest=True)
 
 fig_box = px.box(
     df_box,
@@ -472,7 +488,7 @@ fig_box = px.box(
     y='co2_per_capita_t',
     color=color_col,
     labels={'co2_per_capita_t': 'CO₂ per Capita (t)', 'period': 'Time Period'},
-    title=f'CO₂ per Capita Distribution by {color_col.title()} Over Time'
+    title=f'CO₂ per Capita Distribution by {color_col.title()} (≤ {selected_year})'
 )
 st.plotly_chart(fig_box, use_container_width=True)
 
