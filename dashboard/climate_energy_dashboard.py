@@ -310,6 +310,43 @@ with st.expander("ℹ **Filter Guide** 👈"):
         unsafe_allow_html=True
     )
 
+# ---------- EXPANDER: PROJECT WORKFLOW & METHODOLOGY ----------
+with st.expander("📝 Project Workflow & Methodology", expanded=False):
+    st.markdown("""
+    This dashboard supports the **Climate Tipping Points** project — an investigation into whether crossing a 30% renewables share leads to a faster decline in CO₂ emissions per capita.
+
+    #### 1. Data Collection  
+    - Sourced primarily from **Kaggle**, supplemented by **World Bank** and **UNSD** data (2000–2020)  
+    - Dataset includes country-level indicators on renewable energy share, CO₂ emissions, GDP, energy intensity, and population  
+    - Kaggle dataset: [Global Data on Sustainable Energy](https://www.kaggle.com/datasets/anshtanwar/global-data-on-sustainable-energy)  
+    - World Bank dataset: [Total Population (WDI)](https://data360.worldbank.org/en/indicator/WB_WDI_SP_POP_TOTL)  
+    - UNSD regions: [UN M49 Geoscheme](https://unstats.un.org/unsd/methodology/m49/overview/)
+
+    #### 2. Data Cleaning  
+    - Removed nulls in key columns to avoid skewed comparisons and incomplete trends  
+    - Normalised country names to ensure grouping and aggregation accuracy  
+    - Created derived fields like 5-year change and tipping point flag to support longitudinal and threshold-based analysis
+
+    ### 3. Exploratory Analysis  
+    - Used descriptive statistics, boxplots, and correlation heatmaps to understand variation and identify potential drivers  
+    - Comparative analysis across tipping-point groups to observe behavioural shifts in emissions
+
+    #### 4. Hypothesis Testing  
+    - Applied OLS regression with interaction terms to detect stepwise changes in emission trends post-30% renewables  
+    - Used Mann–Whitney U tests for non-parametric comparison of emission levels before and after the threshold  
+    - Added WLS weighting by population to reduce over-representation from small-population countries and validate generalisability
+
+    #### 5. Machine Learning  
+    - Used Polynomial Regression to capture curved trends, Random Forest for non-linear interactions, and XGBoost for regularised ensemble performance  
+    - Model comparison based on R², RMSE, and MAE:  
+        - **R² (R-squared)** measures how much of the variance in the target variable is explained by the model — closer to 1 indicates better fit  
+        - RMSE and MAE provide measures of average prediction error, with lower values indicating higher accuracy
+
+    #### 6. Visualisation  
+    - Interactive dashboard with filters, maps, and prediction sliders to enable scenario testing  
+    - Designed to support public understanding and exploratory decision-making
+    """)
+
 
 
 with st.expander("📊 **Descriptive Analysis**", expanded=False):
