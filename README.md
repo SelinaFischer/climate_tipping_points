@@ -405,9 +405,33 @@ The final dashboard communicates complex climate and energy dynamics through a c
 
 
 ## Unfixed Bugs
-* Please mention unfixed bugs and why they were not fixed. This section should include shortcomings of the frameworks or technologies used. Although time can be a significant variable to consider, paucity of time and difficulty understanding implementation are not valid reasons to leave bugs unfixed.
-* Did you recognise gaps in your knowledge, and how did you address them?
-* If applicable, include evidence of feedback received (from peers or instructors) and how it improved your approach or understanding.
+
+### Subregion Misclassification
+
+During post-deployment testing, a notable issue was identified in the **Geography** filter of the dashboard:
+
+- When filtering for countries in **Northern Africa**, a country from **Western Europe** incorrectly appeared in the visualisation.![visual4 bug](image-1.png)
+- This suggests a misclassification in the country-to-subregion mapping, despite defensive coding applied via the `FORCE_GEO` dictionary and validation logic.
+
+
+### Why It Was Not Fixed
+
+Due to time constraints, the issue was not fully investigated or resolved. It is considered a **known bug** and is documented for future improvement. The fix would likely involve:
+
+- Strengthening validation logic in the `geo_meta` DataFrame
+- Improving label harmonisation between the dataset and the sidebar filters
+
+
+### Knowledge Gaps and How They Were Addressed
+
+This issue surfaced several technical and practical gaps:
+
+- **Region Metadata Normalisation:**  
+  Handling mismatches in country names (e.g., "UK" vs "United Kingdom") required using a `FORCE_GEO` override and applying `enforce_geo_labels()` to consistently label geography columns.
+
+> This section highlights the challenge of managing diverse global datasets and the importance of robust validation during the final deployment stage.
+
+
 
 ## Development Roadmap
 * What challenges did you face, and what strategies were used to overcome these challenges?
