@@ -434,22 +434,42 @@ This issue surfaced several technical and practical gaps:
 
 
 ## Development Roadmap
-* What challenges did you face, and what strategies were used to overcome these challenges?
-* What new skills or tools do you plan to learn next based on your project experience? 
+
+### Challenges and How They Were Overcome
+
+One of the most stressful challenges occurred during the deployment phase. Initially, I encountered persistent errors while attempting to deploy the dashboard to **Streamlit Community Cloud**. I chose Streamlit over alternatives like Heroku primarily because it offers **free hosting** for Streamlit apps, making it ideal for individual and portfolio projects.
+
+When deployment failed, I first consulted my AI buddy ChatGPT for debugging help. Although the suggestions pointed me in the right direction, the issue remained unresolved. I then turned to the [Streamlit Community Forum](https://discuss.streamlit.io/) and reviewed their official [deployment documentation](https://docs.streamlit.io/).
+
+There, I discovered that **including specific package versions in the `requirements.txt` file can cause compatibility issues** unless all versions match those supported by Streamlit’s cloud environment. By removing the version constraints, I was finally able to deploy the dashboard successfully.
+
+Seeing it live was a moment of genuine joy and relief—marking the completion of a technically demanding but rewarding solo project.
+
+### Future Learning Goals
+
+Based on this experience, I plan to further develop the following skills:
+
+- **Deployment Best Practices** for data apps, including CI/CD pipelines and containerisation  
+- **Advanced Visualisation Techniques** using Plotly, Altair, and rich Streamlit interactivity  
+- **Backend Data Engineering** including SQL, APIs, and efficient handling of large datasets  
+- **Statistical Modelling & ML** to strengthen hypothesis validation and predictive analytics  
+
+These next steps will help broaden the scope of future data-driven projects while enhancing scalability, performance, and insight delivery.
+
 
 ## Deployment
-### Heroku
 
-* The App live link is: https://YOUR_APP_NAME.herokuapp.com/ 
-* Set the runtime.txt Python version to a [Heroku-20](https://devcenter.heroku.com/articles/python-support#supported-runtimes) stack currently supported version.
-* The project was deployed to Heroku using the following steps.
+### Streamlit Community Cloud
 
-1. Log in to Heroku and create an App
+* The App live link is: https://climatetippingpoints.streamlit.app/
+* * The project was deployed to Streamlit Community Cloud using the following steps.
+1. Log in to Streamlit communit cloud platform and create an account
 2. From the Deploy tab, select GitHub as the deployment method.
-3. Select your repository name and click Search. Once it is found, click Connect.
-4. Select the branch you want to deploy, then click Deploy Branch.
-5. The deployment process should happen smoothly if all deployment files are fully functional. Click now the button Open App on the top of the page to access your App.
-6. If the slug size is too large then add large files not required for the app to the .slugignore file.
+3. Select my repository name and click Search. Once it is found, click Connect.
+4. Select the branch I want to deploy, then click Deploy.
+
+![streamlit deployment](image-2.png)
+
 
 
 ## Main Data Analysis Libraries
