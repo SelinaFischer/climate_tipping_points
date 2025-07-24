@@ -1,7 +1,7 @@
 ![project cover](image-3.png)
 
 
-## 🌍 Climate Tipping Points: How Renewables & Efficiency Cut CO₂ for a Greener Future
+
 
 ### Introduction & Motivation
 
