@@ -9,7 +9,7 @@ As climate urgency grows, the European Union has raised its renewable energy tar
 ([source](https://energy.ec.europa.eu/topics/renewable-energy/renewable-energy-directive-targets-and-rules/renewable-energy-targets_en)).
 
 
-Are these thresholds enough to trigger meaningful decarbonisation?
+**Are these thresholds enough to trigger meaningful decarbonisation?**
 
 In this independent project, I investigate **climate tipping points**  moments when renewable energy adoption and efficiency improvements begin to produce measurable reductions in CO₂ emissions. Using global datasets, I apply statistical validation and interactive visualisation to identify key drivers accelerating or hindering the path to net zero.
 
