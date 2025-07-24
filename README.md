@@ -595,24 +595,88 @@ The dashboard and accompanying analysis demonstrate how data can uncover subtle 
 The insights derived here reinforce the role of data-informed policymaking in addressing climate change and advancing toward global decarbonisation goals.
 
 
+## Reflection
 
-## Credits 
+This project has been one of the most ambitious and rewarding challenges I’ve taken on. I managed the entire 5-day scope using agile sprints, setting milestones and iterating quickly through exploration, design, analysis, and delivery.
 
-* In this section, you need to reference where you got your content, media and extra help from. It is common practice to use code from other repositories and tutorials, however, it is important to be very specific about these sources to avoid plagiarism. 
-* You can break the credits section up into Content and Media, depending on what you have included in your project. 
+I threw myself into the deep end by combining three raw datasets into a single enriched dataset to support deeper storytelling. It was my first attempt at building an interactive dashboard using code, and I chose to use Streamlit to bring the visualisations to life. Initially, this was daunting. I experienced high anxiety due to the many unknowns and technical hurdles. But with perseverance, I pushed through and achieved the vision I had in mind.
 
-### Content 
+Throughout the journey, I leveraged AI tools like ChatGPT to support ideation, optimise code, and help troubleshoot bugs. While deployment posed unexpected challenges, particularly with package versioning in the `requirements.txt` file, I found a solution through the Streamlit Community Cloud documentation. After updating my config and removing pinned library versions, the dashboard deployed successfully. Seeing the live version brought immense joy and relief. It was a true moment of accomplishment.
 
-- The text for the Home page was taken from Wikipedia Article A
-- Instructions on how to implement form validation on the Sign-Up page was taken from [Specific YouTube Tutorial](https://www.youtube.com/)
-- The icons in the footer were taken from [Font Awesome](https://fontawesome.com/)
+I’ve always set challenges for myself to test my ability and stretch to the next level. This mindset kept me going. Along the way, I gained valuable new skills in
 
-### Media
+* combining and cleaning multi-source datasets  
+* Streamlit dashboard development and UI design  
+* statistical testing (OLS, Spearman, Mann-Whitney U)  
+* visual storytelling and interactive analytics  
 
-- The photos used on the home and sign-up page are from This Open-Source site
-- The images used for the gallery page were taken from this other open-source site
+This project not only expanded my technical capabilities but also deepened my interest in climate analytics and public data storytelling.
+
+## Future Work
+
+The current dashboard includes a predictive model that estimates CO₂ per capita based on energy intensity and renewables share, supported by user-controlled slider inputs. To build on this foundation, I plan to
+
+* incorporate additional variables such as population size, GDP per capita, and climate policy indicators to improve predictive accuracy  
+* add time-series forecasting to simulate CO₂ emissions over future decades  
+* enable side-by-side comparisons of countries or regions to reveal group-level tipping points  
+* refine the visual design for mobile responsiveness and accessibility  
+* enrich the user experience with contextual tooltips, guided insights, and dynamic narratives that explain key trends  
+
+These improvements aim to strengthen the dashboard as both an educational and exploratory tool, helping users better understand how different countries can accelerate progress toward net-zero targets and climate resilience.
+
+
+## Project Summary
+
+This project explores the relationship between renewable energy adoption, energy efficiency, and CO₂ emissions per capita across countries. Using open global datasets, I built an interactive dashboard that tests key hypotheses about climate tipping points and emission reduction trends.
+
+The dashboard brings together data from Kaggle, the World Bank, and the United Nations Statistics Division (UNSD) to illustrate how shifts in renewables share and energy intensity contribute to decarbonisation. Insights are validated using statistical techniques such as Spearman correlation, OLS regression, and Mann-Whitney U testing. A predictive model enables users to simulate CO₂ emissions based on adjustable energy inputs.
+
+
+## Project Outcome
+
+- **Live Streamlit app** featuring 11 interactive visualisations, filters, metric toggles, and a CO₂ prediction tool  
+- **Full Jupyter notebooks** covering end-to-end ETL, data cleaning, EDA, hypothesis testing and visualisation 
+- **Deployed dashboard** hosted on Streamlit Community Cloud  
+- **Version-controlled GitHub repository** prepared for ongoing extension and feature upgrades  
 
 
 
-## Acknowledgements (optional)
-* Thank the people who provided support through this project.
+## Credits
+
+### Content & Code
+
+- Base README structure inspired by the [Code Institute Data Analytics Project Template](https://github.com/Code-Institute-Solutions/Data-Analysis-Project).
+
+- Code logic and dashboard interaction techniques informed by materials from the [Code Institute LMS – Data Analytics & AI](https://learn.codeinstitute.net)
+
+
+
+### Acknowledgements
+
+This project leveraged the following resources, tools, and platforms:
+
+- **Global Sustainable Energy Dataset**  
+  Provided by [anshtanwar on Kaggle](https://www.kaggle.com/datasets/anshtanwar/global-data-on-sustainable-energy)
+
+- **World Bank Data 360**  
+  Population indicator: `SP.POP.TOTL` from [data360.worldbank.org](https://data360.worldbank.org)
+
+- **UNSD M49 Classification**  
+  Country and region mapping from the [United Nations Statistics Division (UNSD)](https://unstats.un.org/unsd/methodology/m49/overview/)
+
+- **OpenAI ChatGPT**  
+  Used extensively for ideation, troubleshooting, and code optimization — [chat.openai.com](https://chat.openai.com)
+
+- **Abacus.AI**  
+  Used for automated insight suggestions and exploratory analysis — [abacus.ai](https://abacus.ai)
+
+- **Perplexity AI**  
+  AI-powered research tool for sourcing policy context and references — [perplexity.ai](https://www.perplexity.ai)
+
+- **Streamlit Dashboard Tutorial**: [Build an interactive dashboard](https://www.youtube.com/watch?v=p2pXpcXPoGk)
+
+- **Streamlit Deployment Tutorial**: [How to deploy Streamlit app on Community Cloud](https://www.youtube.com/watch?v=HKoOBiAaHGg).
+
+
+
+[🔝 Go to Top](#top)
