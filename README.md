@@ -84,24 +84,12 @@ The project combined descriptive analysis with statistical validation to balance
 
 ### Hypotheses & Deliverables
 
-| Hypothesis | Rationale & Deliverables |
-|-----------|---------------------------|
-| **H1: Renewables Share vs CO₂**  
-“Higher renewables share is associated with lower CO₂ per capita.” |  
-- **Data work:** Extract `renewables_share_pct` and `co2_per_capita_t` from the cleaned dataset  
-- **Stats:** Spearman correlation and OLS regression  
-- **Dashboard:** Line chart and scatterplot with trendline to visualise the relationship |
-| **H2: Renewables Tipping Point**  
-“Above 30% renewables, CO₂ declines accelerate.” |  
-- **Data work:** Use `above_30_pct` binary column to compare groups  
-- **Stats:** Segmented regression with interaction term (`above_30_pct * renew_share`); Mann–Whitney U test (optional)  
-- **EDA Visual:** 2020-only bar chart showing average CO₂ per capita below vs above 30%  
-- **Narrative:** Tipping point hypothesis supported by structural difference in emissions |
-| **H3: Energy Intensity vs CO₂**  
-“Lower energy intensity (MJ per $ of GDP) correlates with lower CO₂ per capita.” |  
-- **Data work:** Integrate `energy_intensity_mj_usd` and `gdp_pc_usd`  
-- **Stats:** Spearman correlation and OLS regression controlling for GDP  
-- **Dashboard:** Bubble or scatterplot by country, coloured by GDP |
+| **Hypothesis** | **Rationale & Deliverables** |
+|----------------|-------------------------------|
+| **H1: Renewables Share vs CO₂**<br>“Higher renewables share is associated with lower CO₂ per capita.” | - **Data work:** Extract `renewables_share_pct` and `co2_per_capita_t` from the cleaned dataset<br>- **Stats:** Spearman correlation and Ordinary Least Squares (OLS) regression<br>- **Dashboard:** Line chart and scatterplot with trendline to visualise the relationship |
+| **H2: Renewables Tipping Point**<br>“Above 30% renewables, CO₂ declines accelerate.” | - **Data work:** Use `above_30_pct` binary column to compare groups<br>- **Stats:** Segmented regression with interaction term (`above_30_pct * renew_share`); Mann–Whitney U test<br>- **EDA Visual:** Bar chart (2020-only) showing average CO₂ per capita below vs above 30%<br>- **Narrative:** Tipping point hypothesis supported by structural difference in emissions |
+| **H3: Energy Intensity vs CO₂**<br>“Lower energy intensity (MJ per $ of GDP) correlates with lower CO₂ per capita.” | - **Data work:** Integrate `energy_intensity_mj_usd` and `gdp_pc_usd`<br>- **Stats:** Spearman correlation and OLS regression controlling for GDP<br>- **Dashboard:** Bubble or scatterplot by country, coloured by GDP |
+
 
 
 
