@@ -78,20 +78,75 @@ Despite global commitments through initiatives like the EU Green Deal and COP28,
 
 | Hypothesis | Rationale & Deliverables |
 |-----------|---------------------------|
-| **H1: Renewables Share vs CO₂**<br>“Higher renewables share is associated with lower CO₂ per capita.” | - **Data work:** Extract renewables share and CO₂ per capita from cleaned dataset<br>- **Stats:** Pearson or Spearman correlation, plus OLS regression<br>- **Dashboard:** Line chart + scatterplot with trendline to visualise the relationship |
-| **H2: Renewables Tipping Point**<br>“Above 30% renewables, CO₂ declines accelerate.” | - **Data work:** Flag years with ≥30% renewables share<br>- **Stats:** Segmented (breakpoint) regression with interaction term; Mann–Whitney U test as needed<br>- **Dashboard:** Before/after bar chart + tipping point alert |
-| **H3: Energy Intensity vs CO₂**<br>“Lower energy intensity (MJ per $ of GDP) correlates with lower CO₂ per capita.” | - **Data work:** Integrate energy intensity metric and GDP<br>- **Stats:** Spearman correlation and OLS regression controlling for GDP<br>- **Dashboard:** Bubble or bar chart comparing countries |
+| **H1: Renewables Share vs CO₂**  
+“Higher renewables share is associated with lower CO₂ per capita.” |  
+- **Data work:** Extract `renewables_share_pct` and `co2_per_capita_t` from the cleaned dataset  
+- **Stats:** Spearman correlation and OLS regression  
+- **Dashboard:** Line chart and scatterplot with trendline to visualise the relationship |
+| **H2: Renewables Tipping Point**  
+“Above 30% renewables, CO₂ declines accelerate.” |  
+- **Data work:** Use `above_30_pct` binary column to compare groups  
+- **Stats:** Segmented regression with interaction term (`above_30_pct * renew_share`); Mann–Whitney U test (optional)  
+- **EDA Visual:** 2020-only bar chart showing average CO₂ per capita below vs above 30%  
+- **Narrative:** Tipping point hypothesis supported by structural difference in emissions |
+| **H3: Energy Intensity vs CO₂**  
+“Lower energy intensity (MJ per $ of GDP) correlates with lower CO₂ per capita.” |  
+- **Data work:** Integrate `energy_intensity_mj_usd` and `gdp_pc_usd`  
+- **Stats:** Spearman correlation and OLS regression controlling for GDP  
+- **Dashboard:** Bubble or scatterplot by country, coloured by GDP |
 
 
 
+### Dataset Content
 
+This project integrates and transforms multiple global datasets to enable robust, cross-country analysis of energy transitions and emissions between 2000 and 2020.
 
+#### Sources & Time Span
 
+- **Global Sustainable Energy Dataset**  
+  Country-year panel of sustainable energy indicators  
+  **Source:** [Kaggle - Global Data on Sustainable Energy](https://www.kaggle.com/datasets/anshtanwar/global-data-on-sustainable-energy)  
+  - Raw file: `global-data-on-sustainable-energy_raw.csv`  
+  - Time span: 2000–2020  
+  - Dimensions: 3,649 rows × 21 columns
 
+- **World Bank Population (SP.POP.TOTL)**  
+  Official population estimates for all countries  
+  - Original coverage: 1960–2023  
+  - Subset for this project: 2000–2020  
+  - Used to calculate per capita CO₂ emissions and energy metrics  
+  **Source:** [World Bank Data 360](https://data360.worldbank.org/en/indicator/WB_WDI_SP_POP_TOTL)
 
+- **UNSD M49 Region Mapping**  
+  Static country classification used for regional analysis  
+  **Source:** [UNSD M49 Overview](https://unstats.un.org/unsd/methodology/m49/overview/)
 
-## Dataset Content
-* Describe your dataset. Choose a dataset of reasonable size to avoid exceeding the repository's maximum size of 100Gb.
+#### Data Transformation Summary
+
+| Step | Description |
+|------|-------------|
+| Rename columns | Standardised all column names for clarity and compatibility (e.g. `Access to electricity (%)` → `elec_access_pct`) |
+| Normalisation | Merged in population data to create per capita metrics (e.g. `co2_per_capita_t`) |
+| Regional enrichment | Mapped `region` and `subregion` using UNSD M49 classification |
+| Derived features | Added engineered variables such as:  
+&nbsp;&nbsp;– `log_co2_per_capita_t` (log-transformed emissions)  
+&nbsp;&nbsp;– `above_30_pct` (binary indicator for tipping point analysis)  
+&nbsp;&nbsp;– `year_offset` (used for trend-based modelling)  
+&nbsp;&nbsp;– `renewables_3yr_avg` (3-year trailing average) |
+| Missingness tracking | Added `_miss` columns to capture imputed or missing values for data quality checks |
+
+#### Cleaned Dataset Overview
+
+- File: `enhanced_energy_features_final.csv`  
+- Dimensions: 3,649 rows × 37 columns  
+- Format: Panel data (each row represents a country-year observation)  
+- Key improvements:  
+  - Per-capita emissions and energy indicators  
+  - Log transformations for skewed variables  
+  - Policy-relevant binary flag for ≥30% renewables tipping point
+
+This enhanced dataset supports all statistical testing, hypothesis validation, and dashboard visualisations used throughout the project.
+
 
 
 ## Business Requirements
