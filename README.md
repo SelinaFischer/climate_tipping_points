@@ -8,22 +8,23 @@
 As climate urgency grows, the European Union has raised its renewable energy targets  from **32% by 2030** under the *Recast Renewable Energy Directive (2018/2001/EU)* to **at least 42.5%**, with an ambition to reach **45%**, under the *Revised Renewable Energy Directive (EU/2023/2413)*  
 ([source](https://energy.ec.europa.eu/topics/renewable-energy/renewable-energy-directive-targets-and-rules/renewable-energy-targets_en)).
 
-But are these thresholds enough to trigger meaningful decarbonisation?
 
-In this independent project, I investigate **climate tipping points** — moments when renewable energy adoption and efficiency improvements begin to produce measurable reductions in CO₂ emissions. Using global datasets, I apply statistical validation and interactive visualisation to identify key drivers accelerating or hindering the path to net zero.
+Are these thresholds enough to trigger meaningful decarbonisation?
+
+In this independent project, I investigate **climate tipping points**  moments when renewable energy adoption and efficiency improvements begin to produce measurable reductions in CO₂ emissions. Using global datasets, I apply statistical validation and interactive visualisation to identify key drivers accelerating or hindering the path to net zero.
 
 The analysis explores:
 - Whether exceeding a 30% renewables share represents a tipping point in emissions per capita,
 - The role of energy efficiency and financial flows in influencing decarbonisation,
 - And which regions are advancing or lagging  in the energy transition.
 
-The aim is to transform complex data into practical insights that highlight where climate action is taking hold — and where greater momentum is needed.
+The aim is to transform complex data into practical insights that highlight where climate action is taking hold  and where greater momentum is needed.
 
 
 ### Project Objectives
 
 - Quantify how renewable energy adoption and energy efficiency relate to CO₂ emissions across countries and over time.
-- Detect structural **tipping points** — thresholds where emission reductions begin to accelerate.
+- Detect structural **tipping points** thresholds where emission reductions begin to accelerate.
 - Deliver actionable insights through an interactive dashboard designed to support policy decisions and further research.
 
 
