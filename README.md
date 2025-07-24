@@ -59,6 +59,13 @@ Despite global commitments through initiatives like the EU Green Deal and COP28,
 | Day 4 | Build Streamlit components (plots + narrative), test, fix bugs, deploy |
 | Day 5 | Documentation: Write README, summarise conclusions, update project board |
 
+**Data Management Approach:**  
+Data was collected from public sources (Kaggle, World Bank, UNSD) and harmonised across time and geography. Processing involved renaming columns, merging population data, handling missing values, creating per-capita and log-transformed features, and engineering indicators such as `above_30_pct`. Cleaned datasets were stored in GitHub and reused across both analysis and dashboard layers.
+
+**Methodology Rationale:**  
+The project combined descriptive analysis with statistical validation to balance clarity and rigour. Correlation analysis was used to explore associations, while OLS and segmented regression tested the strength and structure of relationships. This allowed both quantitative insight and policy-relevant interpretation, especially regarding the 30% renewables tipping point.
+
+
 
 ### MVP Deliverables
 
@@ -121,6 +128,7 @@ This project integrates and transforms multiple global datasets to enable robust
   Static country classification used for regional analysis  
   **Source:** [UNSD M49 Overview](https://unstats.un.org/unsd/methodology/m49/overview/)
 
+
 #### Data Transformation Summary
 
 | Step | Description |
@@ -148,27 +156,140 @@ This project integrates and transforms multiple global datasets to enable robust
 This enhanced dataset supports all statistical testing, hypothesis validation, and dashboard visualisations used throughout the project.
 
 
+### Business Requirements
 
-## Business Requirements
-* Describe your business requirements
+- Identify and visualise the key drivers of the global energy transition  
+- Provide actionable insights to support decision-making by policymakers, analysts, and researchers  
+- Enable scenario exploration by country, region, subregion, and year to reveal geographic and temporal patterns  
+- Communicate complex findings in a clear, accessible way through data storytelling and interactive visualisation
 
 
-## Hypothesis and how to validate?
-* List here your project hypothesis(es) and how you envision validating it (them) 
+## Hypotheses and How to Validate
 
-## Project Plan
-* Outline the high-level steps taken for the analysis.
-* How was the data managed throughout the collection, processing, analysis and interpretation steps?
-* Why did you choose the research methodologies you used?
+This project is guided by three hypotheses related to the role of renewable energy and energy efficiency in reducing CO₂ emissions:
 
-## The rationale to map the business requirements to the Data Visualisations
-* List your business requirements and a rationale to map them to the Data Visualisations
+### H1: Renewables Share vs CO₂ per Capita  
+**Hypothesis:** Countries with a higher share of renewable energy have lower CO₂ emissions per capita.  
+**Validation Approach:**  
+- Calculate correlations (Spearman and OLS regression) between `renewables_share_pct` and `co2_per_capita_t`  
+- Visualise relationships using scatterplots with trendlines
+
+### H2: Tipping Point at 30% Renewables  
+**Hypothesis:** Countries with a renewables share above 30% experience a structural decline in CO₂ emissions.  
+**Validation Approach:**  
+- Create a binary flag (`above_30_pct`) to compare average emissions below and above the threshold  
+- Apply segmented regression with interaction terms and visualise results  
+- Support with a 2020-only bar chart comparing the two groups
+
+### H3: Energy Intensity vs CO₂ per Capita  
+**Hypothesis:** Countries with lower energy intensity (MJ per $ GDP) emit less CO₂ per capita.  
+**Validation Approach:**  
+- Test correlation between `energy_intensity_mj_usd` and `co2_per_capita_t`  
+- Use OLS regression controlling for `gdp_pc_usd` to account for development level  
+- Plot emissions vs energy intensity using scatterplots, coloured by GDP
+
+Each hypothesis is tested using both statistical validation and visual storytelling to ensure interpretability and support evidence-based conclusions.
+
+
+## The Rationale to Map the Business Requirements to the Data Visualisations
+
+This project’s data visualisations were designed to directly support the core business requirements through meaningful, interpretable outputs. Below is a breakdown of each requirement and the rationale for the selected visual approach.
+
+### 1. Identify and visualise key drivers of the energy transition  
+**Visualisations used:**  
+- Correlation matrix and scatterplots for key variable pairs  
+- Time-series and trendlines showing how renewables share and energy intensity evolve  
+**Rationale:**  
+These visuals help isolate relationships between variables such as renewables share, energy intensity, and CO₂ emissions, allowing analysts to spot the most influential drivers.
+
+### 2. Provide actionable insights for stakeholders  
+**Visualisations used:**  
+- Tipping point bar chart comparing CO₂ per capita above vs below 30% renewables  
+- Country-level plots with GDP, energy metrics, and emissions  
+**Rationale:**  
+By visualising structural shifts and emissions performance across thresholds, the dashboard highlights where policy action has been most effective — enabling evidence-based recommendations.
+
+### 3. Enable scenario exploration by country, region, subregion, and year  
+**Visualisations used:**  
+- Sidebar filters for country, region, and subregion  
+- Line charts and scatterplots showing changes over time  
+**Rationale:**  
+Interactive filters and temporal visualisations allow users to explore emissions and energy patterns geographically and over the 2000–2020 period, enabling scenario analysis across space and time.
+
+
+### 4. Communicate complex insights accessibly  
+**Visualisations used:**  
+- Cleanly annotated scatterplots, bar charts, and line graphs  
+- Structured narrative embedded in the dashboard  
+**Rationale:**  
+The use of accessible visual formats and straightforward statistical overlays enables non-technical users to engage with insights without needing advanced analytical skills.
+
+Each visual was chosen not just for analytical clarity but to support communication, exploration, and evidence-based decision-making aligned with stakeholder needs.
+
 
 ## Analysis techniques used
 * List the data analysis methods used and explain limitations or alternative approaches.
 * How did you structure the data analysis techniques. Justify your response.
 * Did the data limit you, and did you use an alternative approach to meet these challenges?
 * How did you use generative AI tools to help with ideation, design thinking and code optimisation?
+
+
+## Analysis Techniques Used
+
+This project combined descriptive statistics, hypothesis-driven regression, and visual analytics to validate the relationships between energy transition indicators and CO₂ emissions. The techniques were chosen to balance statistical rigour with interpretability for both technical and non-technical audiences.
+
+### Analytical Methods
+
+- **Descriptive Statistics & Correlation Analysis**  
+  Used to summarise distributions and explore initial relationships between key variables such as `renewables_share_pct`, `energy_intensity_mj_usd`, and `co2_per_capita_t`. Spearman correlation was preferred due to the non-normal distribution of some variables.
+
+- **Ordinary Least Squares (OLS) Regression**  
+  Applied to test the strength of association between predictors and outcomes while controlling for GDP and other confounders. Log-transformed variables were used to reduce skew and improve model fit.
+
+- **Segmented (Tipping Point) Regression**  
+  Used to test Hypothesis 2 — whether a structural change in emissions occurs when renewables share exceeds 30%. This involved an interaction term (`above_30_pct * renew_share`) to capture changes in slope beyond the threshold.
+
+- **Bar Chart Comparison (2020 Snapshot)**  
+  To complement the regression analysis, a simple 2020-only bar chart was used to visually validate whether countries above the 30% renewables threshold had significantly lower emissions — supporting accessibility and visual impact.
+
+### Data Structuring
+
+The dataset was structured as a **panel (country-year)** format, allowing both cross-sectional and longitudinal analysis. Per capita indicators were derived by merging World Bank population data. Log-transformed features and a tipping point binary flag were added to support regression modelling. This structure allowed for flexible slicing across country, region, subregion, and time.
+
+### Limitations & Alternative Approaches
+
+- **Data Gaps:**  
+  Some countries had missing population data or incomplete records across years. To address this, rows with critical missing values (e.g. emissions, renewables share) were dropped during cleaning. The impact was monitored using `_miss` indicator flags.
+
+- **Statistical Constraints:**  
+  Due to limited data points for some smaller countries or regions, the project did not use fixed-effects panel regression or clustering, which would require more consistent time-series coverage. Instead, analysis focused on aggregate patterns and cross-sectional validation (e.g. 2020 snapshot).
+
+- **Causality:**  
+  The analysis is observational and correlational. While relationships are statistically significant, causality cannot be inferred without experimental or time-lagged data.
+
+
+### Use of Generative AI
+
+Generative AI tools played a valuable supporting role across ideation, analysis, and delivery. They helped streamline workflows, improve clarity, and accelerate code development — while all analysis, validation, and decision-making were independently executed and manually verified.
+
+- **ChatGPT** was used to:
+  - Support ideation and framing of hypotheses, such as identifying the 30% renewables tipping point from policy benchmarks
+  - Assist in design thinking for dashboard structure, interactive filters, and storytelling flow
+  - Optimise and debug Python code, particularly in Streamlit and Plotly visualisations
+  - Refine language and structure across documentation, markdown explanations, and README reporting
+
+- **GitHub Copilot** assisted with:
+  - Code auto-completion and pattern suggestions in VS Code
+  - Fixing minor logic and syntax issues in data wrangling, feature engineering, and visualisation steps
+  - Accelerating development during repetitive tasks (e.g. grouped transformations, plot annotation)
+
+- **Abacus.AI** was used to:
+  - Generate the project’s visual cover image for the README 
+  - Contribute to early-stage ideation and planning of the project workflow
+
+
+These tools served as valuable thought partners for improving efficiency, visual design, and clarity — while all analysis, validation, and interpretation were conducted independently to ensure the project remained both technically sound and professionally presented.
+
 
 ## Ethical considerations
 * Were there any data privacy, bias or fairness issues with the data?
