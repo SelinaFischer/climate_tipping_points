@@ -539,6 +539,62 @@ Each library played a distinct role in enabling end-to-end data storytelling —
 
 
 
+## Findings, Recommendations & Conclusion
+
+This project explored the relationship between renewable energy share, energy efficiency, and CO₂ emissions per capita. Through rigorous data analysis, three key hypotheses were tested and validated using statistical models, correlation tests, and visualisations.
+
+
+
+### Summary of Hypotheses and Key Findings
+
+| Hypothesis | Description | Accepted? | Key Finding |
+|-----------|-------------|-----------|-------------|
+| **H1** | Higher renewable energy share is associated with lower CO₂ emissions per capita | Accepted | Strong negative relationship confirmed via Spearman (ρ = –0.805) and OLS regression (β = –0.1117) |
+| **H2** | Tipping point: CO₂ reductions accelerate after 30% renewables | Accepted | Supported by visual patterns and OLS interaction term. Reversed in population-weighted model |
+| **H3** | Lower energy intensity is associated with lower CO₂ per capita | Accepted (Weak) | Weak but statistically significant negative association found (Spearman ρ = –0.122) |
+
+---
+
+### Findings
+
+- Countries with higher renewable energy adoption tend to emit less CO₂ per person.
+- A clear tipping point was observed around the 30% renewables threshold, where emissions drop more steeply for most countries.
+- However, when accounting for population, this tipping point effect disappears — suggesting the need for targeted interventions in populous countries.
+- Energy intensity showed only a weak correlation with emissions, indicating that while efficiency matters, it’s not sufficient on its own to drive deep decarbonisation.
+
+---
+
+### Interpretation & Insight
+
+- **H1:** Higher renewables adoption leads to tangible emissions reductions, justifying investment in clean energy transitions.
+- **H2:** 30% appears to be a meaningful policy target. Crossing it may help countries move into a more stable low-emission path — but this benefit is not yet realised in large-population countries.
+- **H3:** Efficiency gains alone are unlikely to deliver large CO₂ cuts unless combined with cleaner energy sources and industrial reform.
+
+---
+
+### Recommendations
+
+1. **Policy and Investment**
+   - Support countries in achieving at least 30% renewable share — particularly in high-emitting regions.
+   - Pair renewables growth with policies that target large emitters and high-population countries for greater impact.
+
+2. **Energy Efficiency Strategy**
+   - Promote energy efficiency improvements alongside clean energy policies.
+   - Recognise that energy intensity reduction alone may have limited decarbonisation impact without broader systemic changes.
+
+3. **Further Research**
+   - Investigate country-level industrial composition, income, and trade intensity as factors moderating the energy–CO₂ relationship.
+   - Explore additional tipping points at higher thresholds (e.g., 50%, 70% renewables).
+
+---
+
+### Final Thoughts
+
+The dashboard and accompanying analysis demonstrate how data can uncover subtle but impactful relationships in climate and energy policy. Evidence from this project suggests that renewable energy thresholds can be strategically important — but equitable and scalable outcomes require contextual understanding, especially for highly populated countries.
+
+The insights derived here reinforce the role of data-informed policymaking in addressing climate change and advancing toward global decarbonisation goals.
+
+
 
 ## Credits 
 
