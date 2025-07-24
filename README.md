@@ -538,6 +538,20 @@ _Example:_
 Each library played a distinct role in enabling end-to-end data storytelling — from initial data cleaning and statistical analysis to predictive modelling and interactive dashboard deployment.
 
 
+## Streamlit Interactive Dashboard
+
+Explore the interactive climate tipping points dashboard here:
+
+👉 [Climate Tipping Points Dashboard on Streamlit](https://climatetippingpoints.streamlit.app)
+
+The dashboard allows users to:
+
+- Visualise global trends in CO₂ emissions, renewable energy share, and energy efficiency.
+- Interact with predictive models using sliders to estimate CO₂ outcomes.
+- Filter by region, subregion, or country using filters and radio button.
+- View top performers, underperformers, and tipping point analysis with clean, intuitive visuals.
+
+
 
 ## Findings, Recommendations & Conclusion
 
@@ -553,7 +567,7 @@ This project explored the relationship between renewable energy share, energy ef
 | **H2** | Tipping point: CO₂ reductions accelerate after 30% renewables | Accepted | Supported by visual patterns and OLS interaction term. Reversed in population-weighted model |
 | **H3** | Lower energy intensity is associated with lower CO₂ per capita | Accepted (Weak) | Weak but statistically significant negative association found (Spearman ρ = –0.122) |
 
----
+
 
 ### Findings
 
@@ -562,7 +576,7 @@ This project explored the relationship between renewable energy share, energy ef
 - However, when accounting for population, this tipping point effect disappears — suggesting the need for targeted interventions in populous countries.
 - Energy intensity showed only a weak correlation with emissions, indicating that while efficiency matters, it’s not sufficient on its own to drive deep decarbonisation.
 
----
+
 
 ### Interpretation & Insight
 
@@ -570,7 +584,7 @@ This project explored the relationship between renewable energy share, energy ef
 - **H2:** 30% appears to be a meaningful policy target. Crossing it may help countries move into a more stable low-emission path — but this benefit is not yet realised in large-population countries.
 - **H3:** Efficiency gains alone are unlikely to deliver large CO₂ cuts unless combined with cleaner energy sources and industrial reform.
 
----
+
 
 ### Recommendations
 
@@ -586,7 +600,7 @@ This project explored the relationship between renewable energy share, energy ef
    - Investigate country-level industrial composition, income, and trade intensity as factors moderating the energy–CO₂ relationship.
    - Explore additional tipping points at higher thresholds (e.g., 50%, 70% renewables).
 
----
+
 
 ### Final Thoughts
 
@@ -643,7 +657,6 @@ The dashboard brings together data from Kaggle, the World Bank, and the United N
 
 ## Credits
 
-### Content & Code
 
 - Base README structure inspired by the [Code Institute Data Analytics Project Template](https://github.com/Code-Institute-Solutions/Data-Analysis-Project).
 
