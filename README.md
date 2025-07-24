@@ -305,7 +305,7 @@ The sidebar supports dynamic filtering for user-driven exploration:
   - `renewables_share_pct` – Renewables as a share of total energy
   - `co2_per_capita_t` – CO₂ emissions per capita (tonnes)
 
----
+
 
 ### Visual Components (11 in Total)
 
