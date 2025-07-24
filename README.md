@@ -1,4 +1,4 @@
-# ![CI logo](https://codeinstitute.s3.amazonaws.com/fullstack/ci_logo_small.png)
+![project cover](image-3.png)
 
 
 ## 🌍 Climate Tipping Points: How Renewables & Efficiency Cut CO₂ for a Greener Future
