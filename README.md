@@ -473,7 +473,71 @@ These next steps will help broaden the scope of future data-driven projects whil
 
 
 ## Main Data Analysis Libraries
-* Here you should list the libraries you used in the project and provide an example(s) of how you used these libraries.
+
+## Key Python Libraries Used
+This project combines data science and visual analytics using the following core libraries:
+
+### Data Wrangling & Processing
+- **Pandas** – For data loading, cleaning, transformation, and group-based calculations.
+
+  _Example:_  
+  ```python
+  df = pd.read_csv("data/cleaned/enhanced_energy_features_final.csv")
+  df["renewables_5yr_change"] = df.groupby("country")["renewables_share_pct"].diff(5)
+
+- **NumPy** – Used in statistical conversions and mathematical operations.
+  _Example:_  
+  import numpy as np
+  df["log_co2"] = np.log(df["co2_per_capita_t"] + 1)
+
+### Statistical Analysis
+- **SciPy** – Enabled hypothesis testing and statistical validation of group differences.
+_Example:_  
+ from scipy.stats import mannwhitneyu
+ stat, p = mannwhitneyu(before_30, after_30)
+
+### Modelling & Machine Learning
+- **Scikit-learn** – Used for regression modelling, feature scaling, train-test splitting, and evaluation.
+_Example:_  
+ from sklearn.linear_model import LinearRegression
+ model = LinearRegression().fit(X_train, y_train)
+
+- **XGBoost** – (Optional) Applied for advanced ensemble regression models and improved predictions.
+_Example:_ 
+ import xgboost as xgb
+ model = xgb.XGBRegressor().fit(X_train, y_train)
+
+### Data Visualisation
+- **Matplotlib** – Created custom plots such as histograms and bar charts.
+_Example:_ 
+ import matplotlib.pyplot as plt
+ plt.hist(df["renewables_share_pct"], bins=20)
+
+- **Seaborn** – Supported statistical plots like boxplots, KDEs, and heatmaps.
+_Example:_ 
+ import seaborn as sns
+ sns.boxplot(x="region", y="co2_per_capita_t", data=df)
+
+- **Plotly Express** – Built interactive scatter plots and time series charts with dynamic filters.
+_Example:_ 
+ import plotly.express as px
+ px.scatter(df, x="renewables_share_pct", y="co2_per_capita_t", color="subregion")
+
+### Interactive Dashboarding
+- **Streamlit** – Powered the web-based dashboard with dynamic controls and visual output.
+_Example:_
+ import streamlit as st
+ st.line_chart(df.set_index("year")["co2_per_capita_t"])
+
+- **streamlit-tree-select** – Added a collapsible tree menu for geographic filtering.
+_Example:_
+ from streamlit_tree_select import tree_select
+ selection = tree_select(nodes)
+
+
+Each library played a distinct role in enabling end-to-end data storytelling — from initial data cleaning and statistical analysis to predictive modelling and interactive dashboard deployment.
+
+
 
 
 ## Credits 
