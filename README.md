@@ -287,19 +287,122 @@ Generative AI tools played a valuable supporting role across ideation, analysis,
   - Generate the project’s visual cover image for the README 
   - Contribute to early-stage ideation and planning of the project workflow
 
-
 These tools served as valuable thought partners for improving efficiency, visual design, and clarity — while all analysis, validation, and interpretation were conducted independently to ensure the project remained both technically sound and professionally presented.
 
 
-## Ethical considerations
-* Were there any data privacy, bias or fairness issues with the data?
-* How did you overcome any legal or societal issues?
+### Ethical Considerations
+
+This project used publicly available, aggregate-level data from reputable sources including the World Bank, Kaggle, and the United Nations. As such, there were no individual or personally identifiable records involved, and no data privacy risks were present.
+
+Potential fairness or bias concerns were primarily related to:
+- **Data coverage and completeness** — Some countries had missing or inconsistent records, especially in earlier years or less economically developed regions.
+- **Comparability across contexts** — Emissions and energy data vary widely by economic development level, infrastructure, and policy environment, which may affect the interpretation of cross-country comparisons.
+
+These issues were addressed through:
+- Subsetting the dataset to a consistent time period (2000–2020)  
+- Using per-capita and log-transformed metrics to normalise for country size and economic scale  
+- Visualising trends at regional and subregional levels to avoid overgeneralisation
+
+No legal or intellectual property issues were encountered, as all data sources were open-access and properly cited. The analysis was conducted with the goal of supporting equitable and evidence-based climate planning, avoiding assumptions about causality, and presenting findings in a transparent and accessible manner.
+
+
 
 ## Dashboard Design
-* List all dashboard pages and their content, either blocks of information or widgets, like buttons, checkboxes, images, or any other item that your dashboard library supports.
-* Later, during the project development, you may revisit your dashboard plan to update a given feature (for example, at the beginning of the project you were confident you would use a given plot to display an insight but subsequently you used another plot type).
-* How were data insights communicated to technical and non-technical audiences?
-* Explain how the dashboard was designed to communicate complex data insights to different audiences. 
+
+The dashboard was developed using **Streamlit** and evolved iteratively over 20+ design refinements. It provides an intuitive, interactive interface tailored for both technical and non-technical users to explore energy trends, validate hypotheses, and generate insights with clarity and control.
+
+### Sidebar Filters
+
+The sidebar supports dynamic filtering for user-driven exploration:
+
+- **Geography Selector**  
+  A nested region–subregion–country tree built using `streamlit-tree-select`. Enables filtering at multiple geographic levels.  
+
+- **Year Slider**  
+  Allows users to select a year between 2000 and 2020. All visuals dynamically update accordingly.
+
+- **Metric Toggle**  
+  Enables switching between:
+  - `renewables_share_pct` – Renewables as a share of total energy
+  - `co2_per_capita_t` – CO₂ emissions per capita (tonnes)
+
+---
+
+### Visual Components (11 in Total)
+
+#### 1. Global Trends
+- **Line Chart: Global CO₂ per Capita Over Time**
+- **Line Chart: Global Renewables Share Over Time**
+- **Line Chart: Global Energy Intensity Over Time**  
+  _Illustrates long-term patterns to support Hypotheses H1 and H3._
+
+#### 2. Country Leaders
+- **Bar Chart: Top 10 Countries by Renewables Share**  
+  Ranks countries by renewable energy share in the selected year.
+
+- **Bar Chart: Top 10 CO₂ Reducers**  
+  Highlights countries with the largest per-capita CO₂ reductions between the first and last available years.
+
+#### 3. Geographic View
+- **Choropleth Map**  
+  Visualises CO₂ or renewables across the world using color-coded shading.
+
+- **Heatmap: Metric by Country**  
+  Displays values of energy indicators across countries in a matrix format.
+
+#### 4. Metric Explorer
+- **Bubble Chart**  
+  Explores energy intensity vs. CO₂ per capita, with renewables share as the bubble size.
+
+- **Time Series Breakdown**  
+  Enables per-country or per-region tracking of key metrics over time.
+
+#### 5. Tipping Point Test (Hypothesis H2)
+- **Bar Chart: CO₂ Per Capita – Above vs. Below 30% Renewables**  
+  Shows average emissions grouped by whether countries surpassed the 30% renewables threshold.
+
+#### 6. Predictive Model
+- **Interactive Prediction Tool**  
+  Users can adjust sliders for `renewables_share_pct` and `energy_intensity` to generate a predicted CO₂ per capita value using an OLS regression model trained from the dataset.
+
+
+### User Experience & Design Enhancements
+
+- **Use of Expanders**  
+  Collapse sections such as:
+  - “How the Filters Work”
+  - “Descriptive Analysis”
+  - “Project Workflow & Methodology”  
+  This helps reduce visual noise and focus the reader’s attention on key charts.
+
+- **Colour Consistency & Label Validation**  
+  Regional and subregional colors are maintained across visuals. Geographic inconsistencies (e.g., “UK” vs. “United Kingdom”) are corrected in the backend to avoid mislabeling.
+
+- **Error Handling**  
+  Empty filters or incompatible selections trigger warning messages and fallback logic to maintain app stability.
+
+
+### Design Evolution
+
+The dashboard began with basic trend charts and map visualisations. Through a trial-and-error approach, hands-on prototyping, and iterative testing, several key design improvements were introduced:
+
+- Incorporated **expander widgets** to reduce clutter and allow users to focus on key visuals.
+- Added **predictive sliders** to make the insights interactive and participatory.
+- Introduced **metric toggles, tooltips,** and **segmented visual blocks** to support guided storytelling and exploration.
+- Refined **layout, spacing, and legend placement** to improve readability across screen sizes and devices.
+
+
+### Communicating Insights
+
+- **For Non-Technical Audiences**:  
+  Clear labels, interactive sliders, and visual cues make the data approachable. Expanders hide complexity unless needed.
+
+- **For Technical Audiences**:  
+  Metric definitions, trend directions, and chart configurations support further exploration and hypothesis testing. Visual outputs align with key statistical validations (e.g., segmented regression for tipping point testing).
+
+
+The final dashboard communicates complex climate and energy dynamics through a carefully structured and visually accessible interface — enabling data-informed insight, scenario exploration, and public engagement on climate tipping points.
+
 
 ## Unfixed Bugs
 * Please mention unfixed bugs and why they were not fixed. This section should include shortcomings of the frameworks or technologies used. Although time can be a significant variable to consider, paucity of time and difficulty understanding implementation are not valid reasons to leave bugs unfixed.
