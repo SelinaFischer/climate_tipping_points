@@ -120,17 +120,14 @@ This project integrates and transforms multiple global datasets to enable robust
 
 #### Data Transformation Summary
 
-| Step | Description |
-|------|-------------|
-| Rename columns | Standardised all column names for clarity and compatibility (e.g. `Access to electricity (%)` → `elec_access_pct`) |
-| Normalisation | Merged in population data to create per capita metrics (e.g. `co2_per_capita_t`) |
-| Regional enrichment | Mapped `region` and `subregion` using UNSD M49 classification |
-| Derived features | Added engineered variables such as:  
-&nbsp;&nbsp;– `log_co2_per_capita_t` (log-transformed emissions)  
-&nbsp;&nbsp;– `above_30_pct` (binary indicator for tipping point analysis)  
-&nbsp;&nbsp;– `year_offset` (used for trend-based modelling)  
-&nbsp;&nbsp;– `renewables_3yr_avg` (3-year trailing average) |
-| Missingness tracking | Added `_miss` columns to capture imputed or missing values for data quality checks |
+| **Step**               | **Description**                                                                                                                                          |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Rename columns         | Standardised all column names for clarity and compatibility (e.g. `Access to electricity (%)` → `elec_access_pct`)                                      |
+| Normalisation          | Merged in population data to create per capita metrics (e.g. `co2_per_capita_t`)                                                                        |
+| Regional enrichment    | Mapped `region` and `subregion` using UNSD M49 classification                                                                                           |
+| Derived features       | Added engineered variables such as:<br>– `log_co2_per_capita_t` (log-transformed emissions)<br>– `above_30_pct` (binary tipping point flag)<br>– `year_offset` (used for trend modelling)<br>– `renewables_3yr_avg` (3-year trailing average) |
+| Missingness tracking   | Added `_miss` columns to capture imputed or missing values for data quality checks                                                                      |
+
 
 #### Cleaned Dataset Overview
 
